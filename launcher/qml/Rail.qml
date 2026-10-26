@@ -13,9 +13,9 @@ Rectangle {
     Column {
         y: 26; width: parent.width; spacing: 0
         Repeater {
-            model: rail.locked ? [{kind: "hunter", page: "Setup", tip: "Setup"}]
-                               : [{kind: "hunter", page: "Home", tip: "Play"},
-                                  {kind: "settings", page: "Settings", tip: "Settings"}]
+            model: rail.locked ? [{kind: "hunter", page: "Setup", tip: launcher.tr("Setup")}]
+                               : [{kind: "hunter", page: "Home", tip: launcher.tr("Play")},
+                                  {kind: "settings", page: "Settings", tip: launcher.tr("Settings")}]
             delegate: Item {
                 width: rail.width; height: 76
                 property bool active: rail.current === modelData.page

@@ -50,7 +50,7 @@ Item {
         width: isFolder ? parent.width - 110 : fieldRow.controlWidth
         height: 36
         text: String(launcher.value(settingKey))
-        placeholderText: isFolder ? "Default location" : ""
+        placeholderText: isFolder ? launcher.tr("Default location") : ""
         echoMode: field.kind === "password" ? TextInput.Password : TextInput.Normal
         // Saved as it is typed or pasted: a page change destroys the field before it loses
         // focus, and a pasted co-op invite code was lost that way.
@@ -59,7 +59,7 @@ Item {
     }
     GlassButton {
         visible: isFolder
-        text: "Browse"
+        text: launcher.tr("Browse")
         anchors.right: parent.right; y: 46; height: 36; width: 96
         onClicked: launcher.browse(settingKey)
     }

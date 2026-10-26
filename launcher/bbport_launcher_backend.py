@@ -18,17 +18,56 @@ import zipfile
 
 from PySide6.QtCore import QObject, Property, Signal, Slot
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QFileDialog, QMessageBox
+from PySide6.QtWidgets import QFileDialog as _QFileDialog, QMessageBox as _QMessageBox
 
 import bbport_coop as coop
+import bbport_qml_ru
 import bbport_launcher_win as core
 import bbport_startup
 from bbport_pkg_setup import PackageSetupError, install_game
 from bbport_readiness import check_readiness, valid_trophy_key
 
 
+# Russian texts (bbport_qml_ru): on when the launcher language is Russian; set by LauncherBackend.
+RUSSIAN = False
+
+
+def T(text):
+    """The launcher text in the launcher language (English is the key)."""
+    return bbport_qml_ru.tr(text) if RUSSIAN and isinstance(text, str) else text
+
+
+def translated(getter):
+    """A text property shown in the launcher language."""
+    def wrapper(self):
+        return T(getter(self))
+    wrapper.__name__ = getter.__name__
+    wrapper.__doc__ = getter.__doc__
+    return wrapper
+
+
+class _Translating:
+    """QFileDialog / QMessageBox with their captions and texts in the launcher language."""
+    def __init__(self, target):
+        self._target = target
+
+    def __getattr__(self, name):
+        attr = getattr(self._target, name)
+        if not callable(attr) or name[:1].isupper():
+            return attr
+
+        def call(*args, **kwargs):
+            return attr(*(T(a) for a in args), **{k: T(v) for k, v in kwargs.items()})
+        return call
+
+
+QFileDialog = _Translating(_QFileDialog)
+QMessageBox = _Translating(_QMessageBox)
+
+
 def choice_rows(options):
-    return [{'value': str(value), 'text': label[0]} for value, label in options]
+    return [{'value': str(value), 'text': label[0], 'ru': label[1] if len(label) > 1 else ''}
+            for value, label in options]
 
 
 def row(key, label, kind='text', options=None, hint=''):
@@ -260,6 +299,8 @@ class LauncherBackend(QObject):
     def __init__(self, route=None):
         super().__init__()
         self.app = core.app_settings(core.load_json(core.CONFIG_FILE, {}))
+        global RUSSIAN
+        RUSSIAN = (self.app.get('ui_language') or core.windows_language()) == 'ru'
         for signal in (self.changed, self.coopChanged, self.thdChanged):
             signal.connect(self.playModeChanged)
         self._route = dict(route or LAUNCHER_ROUTE)
@@ -316,6 +357,7 @@ class LauncherBackend(QObject):
             self.checkForUpdates(False)
 
     @Property(str, notify=noticeChanged)
+    @translated
     def notice(self):
         return self._notice
 
@@ -357,6 +399,7 @@ class LauncherBackend(QObject):
         return False
 
     @Property(str, notify=changed)
+    @translated
     def startupProblem(self):
         """Banner text while the start-up problem persists; empty once fixed or dismissed."""
         return bbport_startup.PROBLEMS[self._problem][0] if self._problem_active() else ''
@@ -398,6 +441,7 @@ class LauncherBackend(QObject):
         self._write()
 
     @Property(str, notify=changed)
+    @translated
     def gameStatus(self):
         info = core.game_info(self.app.get('game_dir'))
         return f'Game ready · version {info[1]}' if info else 'Choose your game folder to begin'
@@ -413,9 +457,9 @@ class LauncherBackend(QObject):
         fps = str(self.app.get('fps_mode', '120'))
         return {
             'resolution': self.ini.get('output_res', '1920x1080').replace('x', ' × '),
-            'frameRate': 'Unlocked' if fps == 'uncap' else f'{fps} FPS',
+            'frameRate': T('Unlocked') if fps == 'uncap' else f'{fps} FPS',
             'upscaler': str(self.ini.get('upscaler', 'dlss')).upper(),
-            'display': 'Fullscreen' if self.app.get('fullscreen') else 'Windowed',
+            'display': T('Fullscreen') if self.app.get('fullscreen') else T('Windowed'),
         }
 
     @Slot(result=bool)
@@ -432,6 +476,7 @@ class LauncherBackend(QObject):
         return str(self.app.get('game_dir', ''))
 
     @Property(str, notify=changed)
+    @translated
     def saveStatus(self):
         return self.readiness[2]['detail']
 
@@ -445,15 +490,17 @@ class LauncherBackend(QObject):
 
     @Property('QVariantList', notify=changed)
     def readiness(self):
-        return check_readiness(self.app.get('game_dir'),
-                               self.app.get('user_dir') or core.DATA_DIR / 'user',
-                               core.game_info)
+        return [{**item, 'label': T(item['label']), 'detail': T(item['detail'])}
+                for item in check_readiness(self.app.get('game_dir'),
+                                            self.app.get('user_dir') or core.DATA_DIR / 'user',
+                                            core.game_info)]
 
     @Slot()
     def refreshReadiness(self):
         self.changed.emit()
 
     @Property(str, notify=changed)
+    @translated
     def gpuStatus(self):
         return self._gpu_status
 
@@ -474,11 +521,11 @@ class LauncherBackend(QObject):
 
     @Slot(str, result=str)
     def presetLabel(self, name):
-        return core.GRAPHICS_PRESET_INFO.get(name, ('', ''))[0]
+        return T(core.GRAPHICS_PRESET_INFO.get(name, ('', ''))[0])
 
     @Slot(str, result=str)
     def presetDescription(self, name):
-        return core.GRAPHICS_PRESET_INFO.get(name, ('', ''))[1]
+        return T(core.GRAPHICS_PRESET_INFO.get(name, ('', ''))[1])
 
     @Property(int, notify=presetApplied)
     def settingsRevision(self):
@@ -543,6 +590,7 @@ class LauncherBackend(QObject):
         return 'Xbox' if enabled else 'PlayStation'
 
     @Property(str, notify=changed)
+    @translated
     def fsrStatus(self):
         missing = core.fsr4_missing()
         return 'FSR 4 assets ready' if not missing else f'{len(missing)} FSR 4 assets missing'
@@ -567,8 +615,21 @@ class LauncherBackend(QObject):
 
     def live_field(self, field):
         if field['key'] == 'preset':
-            return {**field, 'hint': f"{field['hint']} {self.scene_size_text()}".strip()}
-        return field
+            field = {**field, 'hint': f"{T(field['hint'])} {T(self.scene_size_text())}".strip()}
+        if not RUSSIAN:
+            return field
+        return {**field, 'label': T(field['label']), 'hint': T(field['hint']),
+                'options': [{**option, 'text': option.get('ru') or T(option['text'])}
+                            for option in field['options']]}
+
+    @Slot(str, result=str)
+    def tr(self, text):
+        """QML: launcher.tr("English text") in the launcher language."""
+        return T(text)
+
+    @Property(bool, constant=True)
+    def russian(self):
+        return RUSSIAN
 
     @Slot(str, result='QVariantList')
     def fields(self, page):
@@ -596,15 +657,15 @@ class LauncherBackend(QObject):
         results = []
 
         def add(category, section, label, key='', terms=''):
-            label_text = f'{label} {terms} {SEARCH_TERMS.get(key, "")}'.lower()
-            section_text = section.lower()
-            category_text = category.lower()
+            label_text = f'{label} {T(label)} {terms} {SEARCH_TERMS.get(key, "")}'.lower()
+            section_text = f'{section} {T(section)}'.lower()
+            category_text = f'{category} {T(category)}'.lower()
             haystack = f'{label_text} {section_text} {category_text}'
             if all(word in haystack for word in words):
                 score = sum(4 if word in label_text else 2 if word in section_text else 1
                             for word in words)
                 results.append((score, {'category': category, 'section': section,
-                                        'label': label, 'key': key}))
+                                        'label': T(label), 'key': key}))
 
         for category, sections in SETTINGS_SECTIONS.items():
             for section, keys in sections:
@@ -1045,6 +1106,7 @@ class LauncherBackend(QObject):
                             if choice == 'Keyboard' else ''))
 
     @Property(str, notify=changed)
+    @translated
     def atlasStatus(self):
         if self._atlas_progress:
             return self._atlas_progress
@@ -1254,6 +1316,7 @@ class LauncherBackend(QObject):
     # --- Seamless co-op (experimental): BBSC, hosted on one player's PC over Tailscale -------------
 
     @Property(str, notify=coopChanged)
+    @translated
     def coopStatus(self):
         if self._coop_status:
             return self._coop_status
@@ -1501,6 +1564,7 @@ class LauncherBackend(QObject):
         return False
 
     @Property(str, notify=playModeChanged)
+    @translated
     def playModeSummary(self):
         """One line under PLAY: what it will start."""
         mode = self.playMode
@@ -1542,6 +1606,7 @@ class LauncherBackend(QObject):
         return bool(self.app.get('thd_token') and self.app.get('thd_online_id'))
 
     @Property(str, notify=thdChanged)
+    @translated
     def thdStatus(self):
         if self._thd_status:
             return self._thd_status

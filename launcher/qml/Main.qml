@@ -6,7 +6,7 @@ ApplicationWindow {
     visible: true
     width: 1290; height: 830
     minimumWidth: 1050; minimumHeight: 650
-    title: "Bloodborne — Windows"
+    title: launcher.tr("Bloodborne — Windows")
     color: Theme.base
     property string page: "Home"
     property int wizardStep: 0
@@ -17,8 +17,8 @@ ApplicationWindow {
     property bool savesBlocked: (checks.length > 2 && checks[2].level === "error") || !launcher.savesWritable
     property bool onlineBlocked: launcher.playModeBlocked
     property bool blocked: gameBlocked || savesBlocked || onlineBlocked || launcher.setupRunning
-    property string statusTitle: launcher.running ? "The hunt is underway" : launcher.setupRunning ? "Preparing game files" : gameBlocked ? "Game files need attention" : savesBlocked ? "Saves need attention" : onlineBlocked ? (launcher.playMode === "coop" ? "Co-op needs setting up" : "Sign in to play online") : "Ready to play"
-    property string statusDetail: launcher.running ? "Bloodborne is running." : launcher.setupRunning ? "Installation is in progress." : gameBlocked ? checks[0].detail : savesBlocked ? "Choose a writable saves folder." : onlineBlocked ? launcher.playModeSummary : "Everything required is ready."
+    property string statusTitle: launcher.running ? launcher.tr("The hunt is underway") : launcher.setupRunning ? launcher.tr("Preparing game files") : gameBlocked ? launcher.tr("Game files need attention") : savesBlocked ? launcher.tr("Saves need attention") : onlineBlocked ? (launcher.playMode === "coop" ? launcher.tr("Co-op needs setting up") : launcher.tr("Sign in to play online")) : launcher.tr("Ready to play")
+    property string statusDetail: launcher.running ? launcher.tr("Bloodborne is running.") : launcher.setupRunning ? launcher.tr("Installation is in progress.") : gameBlocked ? checks[0].detail : savesBlocked ? launcher.tr("Choose a writable saves folder.") : onlineBlocked ? launcher.playModeSummary : launcher.tr("Everything required is ready.")
 
     function openWizard(step) { wizardStep = step; page = "Setup" }
     function openSettings(category, section) { page = "Settings"; settings.openAt(category || "", section || "") }
@@ -113,7 +113,7 @@ ApplicationWindow {
         Connections {
             target: launcher
             function onNoticeChanged() {
-                if (page !== "Settings" || launcher.notice === "" || launcher.notice === "Ready to hunt.") return
+                if (page !== "Settings" || launcher.notice === "" || launcher.notice === launcher.tr("Ready to hunt.")) return
                 toast.message = launcher.notice
                 toast.opacity = 1
                 toastTimer.restart()

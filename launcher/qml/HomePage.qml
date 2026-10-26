@@ -12,13 +12,13 @@ Item {
     property bool savesBlocked: false
     property bool onlineBlocked: false
     property bool blocked: gameBlocked || savesBlocked || onlineBlocked || launcher.setupRunning
-    property string statusTitle: launcher.running ? "The hunt is underway" :
-                                 launcher.setupRunning ? "Preparing game files" :
-                                 gameBlocked ? "Game files needed" :
-                                 savesBlocked ? "Saves need attention" :
-                                 onlineBlocked ? (launcher.playMode === "coop" ? "Co-op needs setting up" : "Sign in to play online") : "Ready to hunt"
-    property string statusDetail: gameBlocked ? "Choose your Bloodborne folder, or install it from your own ZIP or PKG dump." :
-                                  savesBlocked ? "The saves folder cannot be written. Choose another one." :
+    property string statusTitle: launcher.running ? launcher.tr("The hunt is underway") :
+                                 launcher.setupRunning ? launcher.tr("Preparing game files") :
+                                 gameBlocked ? launcher.tr("Game files needed") :
+                                 savesBlocked ? launcher.tr("Saves need attention") :
+                                 onlineBlocked ? (launcher.playMode === "coop" ? launcher.tr("Co-op needs setting up") : launcher.tr("Sign in to play online")) : launcher.tr("Ready to hunt")
+    property string statusDetail: gameBlocked ? launcher.tr("Choose your Bloodborne folder, or install it from your own ZIP or PKG dump.") :
+                                  savesBlocked ? launcher.tr("The saves folder cannot be written. Choose another one.") :
                                   onlineBlocked ? launcher.playModeSummary : ""
     property int enabledMods: {
         let n = 0
@@ -66,9 +66,9 @@ Item {
                 width: parent.width; height: 40
                 Row {
                     anchors.verticalCenter: parent.verticalCenter; spacing: 14
-                    Text { text: "BLOODBORNE"; color: Theme.text; font.family: Theme.serif; font.pixelSize: 17; font.letterSpacing: 2.4 }
+                    Text { text: launcher.tr("BLOODBORNE"); color: Theme.text; font.family: Theme.serif; font.pixelSize: 17; font.letterSpacing: 2.4 }
                     Text { text: "/"; color: Theme.textFaint; font.family: Theme.sans; font.pixelSize: 15 }
-                    Text { text: "LAUNCHER"; color: Theme.textDim; font.family: Theme.sans; font.pixelSize: 13; font.letterSpacing: 2 }
+                    Text { text: launcher.tr("LAUNCHER"); color: Theme.textDim; font.family: Theme.sans; font.pixelSize: 13; font.letterSpacing: 2 }
                 }
                 Row {
                     anchors.right: parent.right; anchors.verticalCenter: parent.verticalCenter; spacing: 8
@@ -77,7 +77,7 @@ Item {
                         color: launcher.running ? Theme.accent : home.blocked ? Theme.warn : Theme.good
                     }
                     Text {
-                        text: launcher.running ? "Running" : home.blocked ? "Needs attention" : "Ready"
+                        text: launcher.running ? launcher.tr("Running") : home.blocked ? launcher.tr("Needs attention") : launcher.tr("Ready")
                         color: Theme.textDim; font.family: Theme.sans; font.pixelSize: 13
                     }
                 }
@@ -110,15 +110,15 @@ Item {
                 GlassButton {
                     width: launcher.running ? parent.width - 132 : parent.width; height: 58
                     highlighted: true; serif: true
-                    text: launcher.running ? "Game running" : launcher.setupRunning ? "Installing…" :
-                          home.gameBlocked ? "Set up game files" : home.savesBlocked ? "Choose a saves folder" :
-                          home.onlineBlocked ? (launcher.playMode === "coop" ? "Set up co-op" : "Sign in with Discord") :
-                          launcher.playMode === "coop" ? "Play co-op" : launcher.playMode === "huntersdream" ? "Play online" : "Play offline"
+                    text: launcher.running ? launcher.tr("Game running") : launcher.setupRunning ? launcher.tr("Installing…") :
+                          home.gameBlocked ? launcher.tr("Set up game files") : home.savesBlocked ? launcher.tr("Choose a saves folder") :
+                          home.onlineBlocked ? (launcher.playMode === "coop" ? launcher.tr("Set up co-op") : launcher.tr("Sign in with Discord")) :
+                          launcher.playMode === "coop" ? launcher.tr("Play co-op") : launcher.playMode === "huntersdream" ? launcher.tr("Play online") : launcher.tr("Play offline")
                     enabled: !launcher.running && !launcher.setupRunning
                     onClicked: home.primaryRequested()
                 }
                 GlassButton {
-                    visible: launcher.running; width: 120; height: 58; text: "Stop"
+                    visible: launcher.running; width: Math.max(120, implicitWidth); height: 58; text: launcher.tr("Stop")
                     onClicked: launcher.stop()
                 }
             }
@@ -129,9 +129,9 @@ Item {
                 id: modes
                 width: parent.width; spacing: 8
                 Repeater {
-                    model: [{mode: "offline", label: "Offline"},
-                            {mode: "huntersdream", label: "Online · The Hunter's Dream"},
-                            {mode: "coop", label: "Online · Seamless co-op"}]
+                    model: [{mode: "offline", label: launcher.tr("Offline")},
+                            {mode: "huntersdream", label: launcher.tr("Online · The Hunter's Dream")},
+                            {mode: "coop", label: launcher.tr("Online · Seamless co-op")}]
                     delegate: Rectangle {
                         readonly property bool chosen: launcher.playMode === modelData.mode
                         width: (modes.width - modes.spacing * 2) / 3; height: 40; radius: Theme.radius
@@ -165,7 +165,7 @@ Item {
             MenuRow {
                 visible: launcher.hasUpdate
                 width: parent.width; icon: "update"; selected: true
-                label: "A new version is ready"; value: "Install"; valueColor: Theme.text
+                label: launcher.tr("A new version is ready"); value: launcher.tr("Install"); valueColor: Theme.text
                 onClicked: launcher.installUpdate()
             }
             Item { visible: launcher.hasUpdate; width: 1; height: 12 }
@@ -173,24 +173,24 @@ Item {
             Column {
                 width: parent.width; spacing: 12
                 MenuRow {
-                    width: parent.width; icon: "visuals"; label: "Graphics"
-                    value: launcher.graphicsPreset === "custom" ? "Custom" : launcher.presetLabel(launcher.graphicsPreset) + " preset"
+                    width: parent.width; icon: "visuals"; label: launcher.tr("Graphics")
+                    value: launcher.graphicsPreset === "custom" ? launcher.tr("Custom") : launcher.presetLabel(launcher.graphicsPreset) + launcher.tr(" preset")
                     onClicked: home.openSettings("Visuals", "")
                 }
                 MenuRow {
-                    width: parent.width; icon: "controls"; label: "Controls"
-                    value: launcher.promptChoice + " prompts"
+                    width: parent.width; icon: "controls"; label: launcher.tr("Controls")
+                    value: launcher.tr(launcher.promptChoice) + launcher.tr(" prompts")
                     onClicked: home.openSettings("Controls", "Button prompts")
                 }
                 MenuRow {
-                    width: parent.width; icon: "folder"; label: "Game files & saves"
-                    value: home.gameBlocked || home.savesBlocked ? "Needs attention" : "Ready"
+                    width: parent.width; icon: "folder"; label: launcher.tr("Game files & saves")
+                    value: home.gameBlocked || home.savesBlocked ? launcher.tr("Needs attention") : launcher.tr("Ready")
                     valueColor: home.gameBlocked || home.savesBlocked ? Theme.warn : Theme.textDim
                     onClicked: home.openSettings("Game & Saves", home.savesBlocked && !home.gameBlocked ? "Your data" : "Game files")
                 }
                 MenuRow {
-                    width: parent.width; icon: "puzzle"; label: "Mods & patches"
-                    value: home.enabledMods === 0 ? "None enabled" : home.enabledMods + (home.enabledMods === 1 ? " mod enabled" : " mods enabled")
+                    width: parent.width; icon: "puzzle"; label: launcher.tr("Mods & patches")
+                    value: home.enabledMods === 0 ? launcher.tr("None enabled") : home.enabledMods + (home.enabledMods === 1 ? launcher.tr(" mod enabled") : launcher.tr(" mods enabled"))
                     onClicked: home.openSettings("Mods & Patches", "Installed mods")
                 }
             }
@@ -205,8 +205,8 @@ Item {
             Text {
                 width: parent.width; wrapMode: Text.WordWrap; color: Theme.textDim
                 font.family: Theme.sans; font.pixelSize: 12; lineHeight: 1.35
-                text: launcher.notice !== "Ready to hunt." && launcher.notice !== "" ? launcher.notice :
-                      "Hold Shift while starting to open this launcher  ·  Insert or L3+R3 opens the guide in game"
+                text: launcher.notice !== launcher.tr("Ready to hunt.") && launcher.notice !== "" ? launcher.notice :
+                      launcher.tr("Hold Shift while starting to open this launcher  ·  Insert or L3+R3 opens the guide in game")
             }
         }
     }

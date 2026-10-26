@@ -14,7 +14,7 @@ Window {
     y: Screen.virtualY + (Screen.desktopAvailableHeight - height) / 2
     flags: Qt.FramelessWindowHint | Qt.Tool | Qt.WindowDoesNotAcceptFocus
     color: "transparent"
-    title: "Bloodborne"
+    title: launcher.tr("Bloodborne")
 
     Rectangle {
         anchors.fill: parent
@@ -33,10 +33,10 @@ Window {
         Column {
             x: 112; anchors.verticalCenter: parent.verticalCenter; spacing: 8
             Text {
-                text: splash.countdown > 0 ? "Bloodborne starts in " + splash.countdown + "…" : "Launching Bloodborne…"
+                text: splash.countdown > 0 ? launcher.tr("Bloodborne starts in ") + splash.countdown + "…" : launcher.tr("Launching Bloodborne…")
                 color: "#f3f1ee"; font.family: "Georgia"; font.pixelSize: 22
             }
-            Text { text: "Hold Shift or click here for the launcher"; color: "#d6dbe0"; font.pixelSize: 15; font.letterSpacing: 0.3 }
+            Text { text: launcher.tr("Hold Shift or click here for the launcher"); color: "#d6dbe0"; font.pixelSize: 15; font.letterSpacing: 0.3 }
         }
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: splash.openLauncher() }
     }

@@ -9,6 +9,7 @@ from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication
 
 from bbport_launcher_backend import LauncherBackend
+import bbport_launcher_backend
 import bbport_launcher_win as launcher_core
 import bbport_startup
 
@@ -27,6 +28,12 @@ def run_ui(route=None):
     icon_path = (Path(sys.executable).resolve().parent / 'launcher' / 'assets' / 'hunter-icon.ico') if getattr(sys, 'frozen', False) else (Path(__file__).resolve().parent / 'assets' / 'hunter-icon.ico')
     app.setWindowIcon(QIcon(str(icon_path)))
     backend = LauncherBackend(route)
+    if bbport_launcher_backend.RUSSIAN:
+        # Qt's own texts (Yes/No, Open, Cancel in the dialogs) in Russian too.
+        from PySide6.QtCore import QLibraryInfo, QTranslator
+        translator = QTranslator(app)
+        if translator.load('qtbase_ru', QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)):
+            app.installTranslator(translator)
     backend.connect_workers()
     engine = QQmlApplicationEngine()
     engine.rootContext().setContextProperty('launcher', backend)
