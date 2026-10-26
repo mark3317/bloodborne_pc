@@ -475,6 +475,12 @@ def main():
                 live = '0'
                 env['BB_UI_RES'] = movie_output
                 print('Aspect correction: centered 16:9 stage; aspect changes require restart')
+            elif (ow, oh) != (1920, 1080):
+                # Native-resolution UI at 16:9 above 1080p (matches patches.py ui=out): text and
+                # menus at QHD/4K instead of a 1080p UI scaled up.
+                live = '0'
+                env['BB_UI_RES'] = movie_output
+                print(f'Output {movie_output}: native-resolution UI {movie_output}; resolution changes require restart')
             else:
                 env.pop('BB_UI_RES', None)
         else:

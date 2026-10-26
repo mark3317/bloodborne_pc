@@ -844,7 +844,7 @@ def main():
     ui=OUTPUT_SIZE
     out=output_size({'output_res': a.output_res}) if a.output_res else OUTPUT_SIZE
     if ultrawide(out): ui=hud_canvas(out)
-    elif out[0]*9 != out[1]*16: ui=out
+    elif out != OUTPUT_SIZE: ui=out  # native-resolution UI also at 16:9 (QHD/4K): sharp text
     if size:
         writes+=resolution_writes(a.xml,size,a.app_version,segments,ui)
         if ultrawide(out):
