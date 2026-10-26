@@ -23,6 +23,7 @@
 #include "core/libraries/np/np_matching2/np_matching2_signaling.h"
 #include "core/libraries/np/np_signaling/np_signaling_state.h"
 #include "core/libraries/np/np_signaling/np_signaling_transport.h"
+#include "core/net/p2p_relay.h"
 
 namespace Libraries::Np::SignalingHandler {
 namespace {
@@ -64,16 +65,22 @@ bool ShouldConnectToPeer(const NpMatching2::RoomCache& room,
 }
 
 bool ResolvePeerEndpoint(const NpMatching2::MemberCache& member, u32* out_addr, u16* out_port) {
+    const std::string online_id = OnlineIdString(member.np_id.handle);
     if (member.addr != 0 && member.port != 0) {
         *out_addr = member.addr;
         *out_port = member.port;
+        // bbport: the BBSC relay files peers by online id (p2p_relay.h).
+        Core::Net::P2P::Relay::RememberPeer(online_id, *out_addr, *out_port);
         return true;
     }
 
-    const std::string online_id = OnlineIdString(member.np_id.handle);
-    return !online_id.empty() &&
-           NpSignaling::Transport::ResolvePeer(online_id, out_addr, out_port) && *out_addr != 0 &&
-           *out_port != 0;
+    const bool found = !online_id.empty() &&
+                       NpSignaling::Transport::ResolvePeer(online_id, out_addr, out_port) &&
+                       *out_addr != 0 && *out_port != 0;
+    if (found) {
+        Core::Net::P2P::Relay::RememberPeer(online_id, *out_addr, *out_port);
+    }
+    return found;
 }
 
 bool HasSignalingMagic(const u8* buf, size_t nbytes) {
@@ -99,6 +106,8 @@ void HandleStunEcho(const NpSignaling::StunEcho& echo) {
 
     auto* netinfo = Common::Singleton<NetUtil::NetUtilInternal>::Instance();
     netinfo->SetExternalIp(echo.ext_ip);
+    // bbport: our public endpoint goes with every frame sent through the BBSC relay.
+    Core::Net::P2P::Relay::SetSelfEndpoint(echo.ext_ip, echo.ext_port);
 }
 
 void ProcessSignalingPacket(const void* data, u32 len, u32 from_addr, u16 from_port) {

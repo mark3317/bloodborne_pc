@@ -255,7 +255,7 @@ APP_DEFAULTS = {'ui_language': '', 'game_dir': str(PORT_DIR.parent / 'CUSA03173'
                 'vk_validation': False, 'extra_env': '', 'close_on_play': False,
                 'check_updates': True, 'online': False, 'online_server': 'srv.shadps4.net:31313',
                 'online_webapi': '', 'online_npid': '', 'online_password': '', 'online_upnp': True,
-                'coop_name': '', 'coop_password': '', 'coop_invite': '',
+                'coop_name': '', 'coop_password': '', 'coop_invite': '', 'coop_emulator': 'port',
                 'online_community': COMMUNITY_SERVER,
                 # The co-op pool: 'shadnet' (the server above) or 'huntersdream' (shown only with
                 # BB_HUNTERS_DREAM=0 hides it), and The Hunter's Dream account from its Discord sign-in.

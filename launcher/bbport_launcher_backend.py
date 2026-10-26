@@ -123,7 +123,13 @@ FIELDS = {
         row('coop_password', 'Co-op password', 'password',
             hint="For your co-op account on the host's server. Use one you use nowhere else."),
         row('coop_invite', 'Host invite code',
-            hint='Paste the BBCOOP- code your host sent you. Leave empty when you host.'),
+            hint='Paste the BBCOOP- code your host sent you. Leave empty when you host, or to use '
+                 "this launcher's own co-op server (coop-server.json)."),
+        row('coop_emulator', 'Co-op game program', 'choice',
+            [('port', ("This launcher's (all its settings; BBSC relay built in)",)),
+             ('bbsc', ("BBSC's own BBport build (BBport 1.7.2 features only)",))],
+            hint="Which bb-probe.exe co-op runs. This launcher's has frame generation, the mouse "
+                 "settings and the rest; BBSC's is the one BBSC tests with."),
     ],
     'Mods': [
         row('mods_enabled', 'Enable mods', 'toggle'),
@@ -180,7 +186,7 @@ SETTINGS_SECTIONS = {
         ("The Hunter's Dream", ['online_upnp']),
     ],
     'Co-op': [
-        ('Seamless co-op', ['coop_name', 'coop_password']),
+        ('Seamless co-op', ['coop_name', 'coop_password', 'coop_emulator']),
         ('Host a session', []),
         ('Join a host', ['coop_invite']),
     ],
@@ -1251,11 +1257,16 @@ class LauncherBackend(QObject):
     def coopStatus(self):
         if self._coop_status:
             return self._coop_status
-        if not (coop.installed('client') and coop.installed('server')):
-            return 'Not set up yet: Set up co-op downloads BBSC (about 40 MB) from its GitHub release.'
+        if not coop.installed('client'):
+            return ('Not set up yet: Set up / update BBSC downloads the newest BBSC from its GitHub '
+                    'releases (about 100 MB), or Play co-op does it for you.')
+        version = coop.installed_version('client') or '?'
         if self._coop_host.running:
-            return f'Hosting on {self._coop_host.address}. Send your friend the invite code.'
-        return "Ready. Host a session, or paste a host's invite code and play."
+            return f'BBSC {version}. Hosting on {self._coop_host.address}. Send your friend the invite code.'
+        if not self.app.get('coop_invite', '').strip() and coop.default_invite():
+            server = coop.default_server_name() or 'the co-op server of this launcher'
+            return f'BBSC {version}. Ready: Play co-op joins {server}.'
+        return f"BBSC {version}. Ready. Host a session, or paste a host's invite code and play."
 
     @Property(str, notify=coopChanged)
     def coopInvite(self):
@@ -1304,10 +1315,28 @@ class LauncherBackend(QObject):
         self._coop_status = text
         self.coopChanged.emit()
 
-    def _coop_ensure_packages(self):
-        for kind in ('client', 'server'):
+    def _coop_ensure_packages(self, kinds=('client',)):
+        for kind in kinds:
             if not coop.installed(kind):
                 coop.download(kind, progress=self._coop_progress)
+        coop.apply_override()
+
+    def _coop_probe(self):
+        """The bb-probe.exe co-op runs: this launcher's (default) or BBSC's own BBport build."""
+        if self.app.get('coop_emulator', 'port') == 'bbsc':
+            probe = coop.bbsc_emulator()
+            if probe:
+                # DLSS: the game program loads these from its own folder (NVIDIA's files, not in
+                # BBSC's package): this launcher's copies.
+                for dll in ('bbport_dlss.dll', 'nvngx_dlss.dll'):
+                    src, dst = core.PORT_DIR / 'bin' / dll, probe.parent / dll
+                    try:
+                        if src.is_file() and (not dst.is_file() or src.stat().st_size != dst.stat().st_size):
+                            shutil.copy2(src, dst)
+                    except OSError:
+                        pass
+                return probe
+        return self._coop_game_exe()
 
     def _coop_game_exe(self):
         for candidate in (core.PORT_DIR / 'bin' / 'bb-probe.exe', core.PORT_DIR / 'out' / 'bb-probe.exe'):
@@ -1324,11 +1353,37 @@ class LauncherBackend(QObject):
 
     @Slot()
     def coopSetup(self):
+        """Installs BBSC, or updates it when a newer release is out (the server package too, when
+        this PC has hosted)."""
         def work():
-            for kind in ('client', 'server'):
-                coop.download(kind, progress=self._coop_progress)
-            return 'Co-op is set up. Host a session, or paste an invite code and play.'
-        self._coop_run('Downloading BBSC…', work)
+            done = []
+            kinds = ('client', 'server') if coop.installed('server') else ('client',)
+            for kind in kinds:
+                have, newest = coop.update_available(kind)
+                if newest:
+                    coop.download(kind, progress=self._coop_progress)
+                    done.append(f'{kind} {have or "none"} -> {newest}')
+            coop.apply_override()
+            version = coop.installed_version('client')
+            if done:
+                return f'BBSC {version} installed ({"; ".join(done)}).'
+            return f'BBSC {version} is the newest release.'
+        self._coop_run('Checking BBSC releases…', work)
+
+    @Slot()
+    def coopInstallZip(self):
+        """A BBSC-<version>-BBport.zip (or -Server.zip) from disk: test builds, no GitHub."""
+        source, _ = QFileDialog.getOpenFileName(
+            None, 'Choose a BBSC package (BBSC-<version>-BBport.zip)', str(Path.home() / 'Downloads'),
+            'BBSC package (BBSC-*.zip);;ZIP (*.zip)')
+        if not source:
+            return
+        kind = 'server' if '-Server' in Path(source).name else 'client'
+
+        def work():
+            version = coop.install_zip(kind, source, progress=self._coop_progress)
+            return f'BBSC {version or "?"} ({kind}) installed from {Path(source).name}.'
+        self._coop_run('Installing BBSC…', work)
 
     @Slot()
     def coopStartHosting(self):
@@ -1339,7 +1394,7 @@ class LauncherBackend(QObject):
             return
 
         def work():
-            self._coop_ensure_packages()
+            self._coop_ensure_packages(('client', 'server'))
             address, network = coop.host_address()
             if not address:
                 raise coop.CoopError('No network found. Connect Tailscale, then try again.')
@@ -1382,7 +1437,8 @@ class LauncherBackend(QObject):
             address, key = self._coop_host.address, coop.registration_key()
         else:
             try:
-                address, key = coop.read_invite(self.app.get('coop_invite', ''))
+                address, key = coop.read_invite(self.app.get('coop_invite', '').strip() or
+                                                coop.default_invite())
             except coop.CoopError as error:
                 self._coop_status = f'{error}. Or host a session yourself.'
                 self.coopChanged.emit()
@@ -1391,7 +1447,7 @@ class LauncherBackend(QObject):
 
         def work():
             self._coop_ensure_packages()
-            game = self._coop_game_exe()
+            game = self._coop_probe()
             if not coop.setup_done(game):
                 self._coop_progress('First time: say Yes to the Windows prompt (firewall)…')
                 coop.run_setup(game)

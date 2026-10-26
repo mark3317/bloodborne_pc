@@ -5,6 +5,7 @@
 #include <cstring>
 #include <tuple>
 
+#include "core/net/p2p_relay.h"
 #include "core/net/p2p_transport.h"
 
 #ifndef _WIN32
@@ -64,6 +65,33 @@ auto Canonical(const Endpoint& e) {
         scope = in6->sin6_scope_id;
     }
     return std::tuple{e.Family(), address, port, scope};
+}
+
+// bbport: the BBSC relay fallback (p2p_relay.h) works on IPv4 endpoints.
+bool IPv4Parts(const Endpoint& e, u32* addr_nbo, u16* port_nbo) {
+    if (e.Family() != AF_INET) {
+        return false;
+    }
+    const auto* in = reinterpret_cast<const sockaddr_in*>(&e.addr);
+    std::memcpy(addr_nbo, &in->sin_addr, 4);
+    *port_nbo = in->sin_port;
+    return true;
+}
+
+Endpoint FromIPv4(u32 addr_nbo, u16 port_nbo) {
+    Endpoint e;
+    auto* in = reinterpret_cast<sockaddr_in*>(&e.addr);
+    in->sin_family = AF_INET;
+    in->sin_port = port_nbo;
+    std::memcpy(&in->sin_addr, &addr_nbo, 4);
+    return e;
+}
+
+Relay::RawSend RelaySender(Host::NativeSocket socket) {
+    return [socket](std::span<const u8> packet, u32 addr_nbo, u16 port_nbo) {
+        const Endpoint to = FromIPv4(addr_nbo, port_nbo);
+        (void)Host::SendTo(socket, packet.data(), packet.size(), 0, to.Sockaddr(), to.Length());
+    };
 }
 
 } // namespace
@@ -196,11 +224,23 @@ bool Transport::RecvSignaling(size_t channel, std::vector<u8>* data, Endpoint* f
 }
 
 void Transport::ThreadMain() {
+    const bool relay_family = family_ == AF_INET;
     while (!stop_.load()) {
         std::optional<Clock::time_point> deadline;
+        const bool relay = relay_family && Relay::Enabled();
+        if (relay) {
+            // bbport: register with the BBSC relay every few seconds (keeps the NAT mapping).
+            Relay::KeepAlive(RelaySender(socket_));
+        }
         {
             std::scoped_lock lock{mutex_};
             deadline = EarliestDeadline();
+            if (relay) {
+                const auto tick = Clock::now() + std::chrono::seconds(1);
+                if (!deadline || *deadline > tick) {
+                    deadline = tick;
+                }
+            }
             sleeping_until_ = deadline.value_or(Clock::time_point::max());
         }
         const auto result = Host::WaitOne(socket_, Host::Readable, kick_, deadline);
@@ -222,8 +262,26 @@ void Transport::ThreadMain() {
             if (r.error != Error::Ok) {
                 break;
             }
-            HandlePacket({receive_buffer_.data(), static_cast<size_t>(r.value)},
-                         Endpoint::FromSockaddr(reinterpret_cast<sockaddr*>(&from), from_len), now);
+            const std::span<const u8> data{receive_buffer_.data(), static_cast<size_t>(r.value)};
+            const Endpoint from_endpoint =
+                Endpoint::FromSockaddr(reinterpret_cast<sockaddr*>(&from), from_len);
+            u32 from_addr = 0;
+            u16 from_port = 0;
+            if (relay_family && IPv4Parts(from_endpoint, &from_addr, &from_port)) {
+                if (Relay::IsServer(from_addr, from_port)) {
+                    // bbport: a frame a peer sent through the BBSC relay, filed under the
+                    // endpoint signaling knows for that peer.
+                    std::span<const u8> frame;
+                    u32 peer_addr = 0;
+                    u16 peer_port = 0;
+                    if (Relay::Receive(data, &frame, &peer_addr, &peer_port)) {
+                        HandlePacket(frame, FromIPv4(peer_addr, peer_port), now);
+                    }
+                    continue;
+                }
+                Relay::NoteDirectReceive(from_addr, from_port);
+            }
+            HandlePacket(data, from_endpoint, now);
         }
         RunTimers(now);
     }
@@ -270,8 +328,22 @@ Error Transport::SendPacket(std::span<const u8> packet, const Endpoint& to) {
             return Error::Ok;
         }
     }
+    // bbport: BBSC relay fallback - a peer we may not reach directly also gets the packet
+    // through the relay (Both), or only through it (Relay).
+    Relay::Path path = Relay::Path::Direct;
+    u32 to_addr = 0;
+    u16 to_port = 0;
+    if (family_ == AF_INET && IPv4Parts(to, &to_addr, &to_port)) {
+        path = Relay::Route(to_addr, to_port, packet, RelaySender(socket_));
+        if (path == Relay::Path::Relay) {
+            return Error::Ok;
+        }
+    }
     const auto r =
         Host::SendTo(socket_, packet.data(), packet.size(), 0, to.Sockaddr(), to.Length());
+    if (r.error != Error::Ok && path == Relay::Path::Both) {
+        return Error::Ok; // it went through the relay
+    }
     return r.error;
 }
 

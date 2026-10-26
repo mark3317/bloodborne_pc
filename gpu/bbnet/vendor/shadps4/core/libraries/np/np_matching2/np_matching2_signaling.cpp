@@ -12,6 +12,7 @@
 #include "core/libraries/net/net.h"
 #include "core/libraries/net/net_p2p.h"
 #include "core/libraries/net/net_util.h"
+#include "core/net/p2p_relay.h"
 #include "core/libraries/network/netctl.h"
 #include "core/libraries/np/np_error.h"
 #include "core/libraries/np/np_handler/np_handler.h"
@@ -61,6 +62,10 @@ bool SendMatching2StunPing(const ContextObject& ctx) {
     if (server_addr == 0 || server_udp == 0) {
         return false;
     }
+    // bbport: the BBSC relay (UDP 3478) runs on the shadNet server's address; we register
+    // there under our online id (p2p_relay.h).
+    Core::Net::P2P::Relay::SetServer(server_addr);
+    Core::Net::P2P::Relay::SetLocalId(OnlineIdToString(ctx.online_id));
 
     Matching2StunPing ping{};
     ping.cmd = 0x01;
