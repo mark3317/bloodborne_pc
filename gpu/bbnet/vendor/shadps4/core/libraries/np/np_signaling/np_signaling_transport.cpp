@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include "core/net/host_net.h"
 #include "core/libraries/np/np_signaling/np_signaling_transport.h"
+#include "core/net/p2p_relay.h"
 
 namespace Libraries::Np::NpSignaling::Transport {
 
@@ -66,7 +68,13 @@ void SetMmServerEndpoint(u32 addr, u16 udp_port) {
 }
 
 bool ResolvePeer(std::string_view online_id, u32* out_addr, u16* out_port) {
-    return g_peer_resolver ? g_peer_resolver(online_id, out_addr, out_port) : false;
+    const bool found = g_peer_resolver && g_peer_resolver(online_id, out_addr, out_port);
+    // bbport: every peer endpoint signaling resolves is filed for the BBSC relay by online id
+    // (p2p_relay.h) - the summon path (sceNpSignalingActivateConnection) resolves only here.
+    if (found && *out_addr != 0 && *out_port != 0) {
+        Core::Net::P2P::Relay::RememberPeer(online_id, *out_addr, *out_port);
+    }
+    return found;
 }
 
 bool Matching2Enabled() {

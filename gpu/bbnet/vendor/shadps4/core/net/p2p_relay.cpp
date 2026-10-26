@@ -103,7 +103,7 @@ void AddAliasLocked(State& s, const std::string& id, u32 addr_nbo, u16 port_nbo,
         return;
     }
     s.alias[key] = id;
-    LOG_INFO(Lib_Net, "P2P relay: '{}' known at {:#x}:{} (from {})", IdText(id), addr_nbo,
+    LOG_WARNING(Lib_Net, "P2P relay: '{}' known at {:#x}:{} (from {})", IdText(id), addr_nbo,
              ntohs(port_nbo), from);
 }
 
@@ -171,11 +171,11 @@ void SetServer(u32 addr_nbo) {
     s.acked = false;
     s.last_register = {};
     if (addr_nbo != 0) {
-        LOG_INFO(Lib_Net, "P2P relay: server {:#x}:{}{}", addr_nbo, port,
+        LOG_WARNING(Lib_Net, "P2P relay: server {:#x}:{}{}", addr_nbo, port,
                  s.force ? " (every peer through it, direct copies until a peer answers)"
                          : " (direct first, relay after 2 s)");
     } else {
-        LOG_INFO(Lib_Net, "P2P relay: off");
+        LOG_WARNING(Lib_Net, "P2P relay: off");
     }
 }
 
@@ -183,7 +183,7 @@ void SetSelfEndpoint(u32 addr_nbo, u16 port_nbo) {
     State& s = S();
     std::lock_guard lock(s.mutex);
     if (s.self_addr != addr_nbo || s.self_port != port_nbo) {
-        LOG_INFO(Lib_Net, "P2P relay: our public endpoint {:#x}:{}", addr_nbo, ntohs(port_nbo));
+        LOG_WARNING(Lib_Net, "P2P relay: our public endpoint {:#x}:{}", addr_nbo, ntohs(port_nbo));
     }
     s.self_addr = addr_nbo;
     s.self_port = port_nbo;
@@ -199,7 +199,7 @@ void SetLocalId(std::string_view online_id) {
     if (std::find(s.local_ids.begin(), s.local_ids.end(), id) == s.local_ids.end()) {
         s.local_ids.push_back(id);
         s.last_register = {};
-        LOG_INFO(Lib_Net, "P2P relay: our id '{}'", IdText(id));
+        LOG_WARNING(Lib_Net, "P2P relay: our id '{}'", IdText(id));
     }
 }
 
@@ -265,7 +265,7 @@ Path Route(u32 dest_addr_nbo, u16 dest_port_nbo, std::span<const u8> packet,
             return Path::Direct;
         }
         peer.relayed_since = now;
-        LOG_INFO(Lib_Net, "P2P relay: '{}' at {:#x}:{} {} - through the relay ({} earlier "
+        LOG_WARNING(Lib_Net, "P2P relay: '{}' at {:#x}:{} {} - through the relay ({} earlier "
                           "frame(s) sent again)",
                  IdText(peer.id), peer.addr, ntohs(peer.port),
                  s.force ? "(every peer)" : "sent nothing back directly in 2 s",
@@ -300,9 +300,9 @@ void NoteDirectReceive(u32 addr_nbo, u16 port_nbo) {
         // It answers directly and never used the relay (an emulator without it, or a NAT hole
         // that took longer to open): direct from now on.
         peer.relayed = false;
-        LOG_INFO(Lib_Net, "P2P relay: '{}' reached us directly - back to direct", IdText(peer.id));
+        LOG_WARNING(Lib_Net, "P2P relay: '{}' reached us directly - back to direct", IdText(peer.id));
     } else {
-        LOG_INFO(Lib_Net, "P2P relay: '{}' reached us directly{}", IdText(peer.id),
+        LOG_WARNING(Lib_Net, "P2P relay: '{}' reached us directly{}", IdText(peer.id),
                  peer.relayed ? " (staying on the relay)" : "");
     }
 }
@@ -318,7 +318,7 @@ bool Receive(std::span<const u8> data, std::span<const u8>* frame, u32* from_add
         std::lock_guard lock(s.mutex);
         if (!s.acked) {
             s.acked = true;
-            LOG_INFO(Lib_Net, "P2P relay: registered with the relay");
+            LOG_WARNING(Lib_Net, "P2P relay: registered with the relay");
         }
         return false;
     }
@@ -372,7 +372,7 @@ bool Receive(std::span<const u8> data, std::span<const u8>* frame, u32* from_add
         if (!peer.relayed) {
             peer.relayed = true;
             peer.relayed_since = Clock::now();
-            LOG_INFO(Lib_Net, "P2P relay: '{}' reached us through the relay - answering the same "
+            LOG_WARNING(Lib_Net, "P2P relay: '{}' reached us through the relay - answering the same "
                               "way",
                      IdText(peer.id));
         }
@@ -413,7 +413,7 @@ void KeepAlive(const RawSend& send) {
                      : peer.relay_seen            ? " relay"
                                                   : " relay (no answer yet)";
         }
-        LOG_INFO(Lib_Net, "P2P relay: {} frame(s) sent / {} received through the relay so far; "
+        LOG_WARNING(Lib_Net, "P2P relay: {} frame(s) sent / {} received through the relay so far; "
                           "peers: {}",
                  s.sent, s.received, peers.empty() ? "none" : peers);
     }
