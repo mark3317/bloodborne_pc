@@ -1024,6 +1024,38 @@ void HandleHandshakePacket(u32 from_addr, u16 from_port, const SignalingHandshak
     const std::string from_id(from_id_buf);
     const HandshakeKind kind = static_cast<HandshakeKind>(pkt.kind);
 
+    // bbport: an Offer from a peer we have no connection to - its ActivationRequest (sent once,
+    // through the relay) was lost: the relay sometimes hands over a new peer's first frames late.
+    // The Offer says the same (who, to whom, its connection), so it is taken as that request;
+    // otherwise the host's ring dies after 30 s "no answer" and only its next ring joins.
+    if (kind == HandshakeKind::Offer) {
+        bool known = false;
+        {
+            SignalingMutexGuard lock;
+            for (const auto& [cid, ci] : g_connections) {
+                if (ci.state != ConnState::Inactive && !ci.dead_fired &&
+                    OnlineIdEqualsString(ci.online_id, from_id)) {
+                    known = true;
+                    break;
+                }
+            }
+        }
+        if (!known) {
+            SignalingControl request{};
+            request.kind = static_cast<u8>(ControlKind::ActivationRequest);
+            std::memcpy(request.online_id_from, pkt.online_id_from, sizeof(request.online_id_from));
+            std::memcpy(request.online_id_to, pkt.online_id_to, sizeof(request.online_id_to));
+            request.from_conn_id = pkt.from_conn_id;
+            request.mapped_addr = pkt.mapped_addr;
+            request.mapped_port = pkt.mapped_port;
+            LOG_INFO(Lib_NpSignaling,
+                     "Handshake Offer from '{}' (its connection {}) with no connection here - "
+                     "taken as its activation request",
+                     from_id, pkt.from_conn_id);
+            HandleControlPacket(from_addr, from_port, request);
+        }
+    }
+
     s32 establish_conn = 0;
     SignalingHandshake reply{};
     bool send_reply = false;
