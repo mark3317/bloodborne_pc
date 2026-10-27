@@ -1807,25 +1807,25 @@ int PS4_SYSV_ABI sceHttpSendRequest(int reqId, const void* postData, u64 size) {
         // bbport: BBSC's "fast sign" (BBSC emulator, http.cpp). The game re-posts its co-op sign
         // only every ~30 s, and a cross-map summon needs two or three of those round trips with the
         // broker (advertised -> in the host's map -> claim delivered): a minute or two. So the
-        // guest's own post is repeated here every 3 s until the broker hands back the claim or 60 s
+        // guest's own post is repeated here every 3 s until the broker hands back the claim or 15 s
         // have passed, with the host's map written in (by the BBSC mod: bbsc.dll's
         // BbscRewriteSummonBody) as soon as it is known. The game gets the last reply as the answer
-        // to the post it made. Experimental, off by default: SHADPS4_BBSC_FAST_SIGN=1.
+        // to the post it made. Off: SHADPS4_BBSC_NO_FAST_SIGN=1 (as in BBSC).
         const bool bbsc_summon_create =
             plan.path.find("/summon_messenger/create") != std::string::npos &&
             std::any_of(plan.headers.begin(), plan.headers.end(), [](const auto& header) {
                 return HeaderNameMatches(header.first, "X-ShadPS4-Bloodborne-Seamless");
             });
-        const char* fast_sign = std::getenv("SHADPS4_BBSC_FAST_SIGN");
+        const char* no_fast_sign = std::getenv("SHADPS4_BBSC_NO_FAST_SIGN");
         if (online && worker_errno == 0 && bbsc_summon_create &&
-            (fast_sign != nullptr && *fast_sign != 0 && *fast_sign != '0')) {
+            (no_fast_sign == nullptr || *no_fast_sign == 0 || *no_fast_sign == '0')) {
             const auto delivered = [](const HttpResponse& res) {
                 const std::string_view body{reinterpret_cast<const char*>(res.body.data()),
                                             res.body.size()};
                 return body.find("\"SessionId\"") != std::string_view::npos ||
                        body.find("\"UserId\"") != std::string_view::npos;
             };
-            constexpr int FastSignTries = 20;
+            constexpr int FastSignTries = 5; // BBSC's
             constexpr auto FastSignPause = std::chrono::seconds(3);
             for (int attempt = 1; attempt <= FastSignTries; ++attempt) {
                 if (local_res.status_code != 200 || delivered(local_res) ||
