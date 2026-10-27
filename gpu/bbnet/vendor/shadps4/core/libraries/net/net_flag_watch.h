@@ -202,8 +202,8 @@ inline void Scan(const char* dir, int socket, std::uint16_t vport, const void* d
 // of its events to the others, one message per run step, and the other players' copies of the
 // same event follow it - so a talk-driven event (Eileen's "first greeting" step 12410801, the
 // talk gifts of 9040 / 9100) ran on everyone when one player talked, and ran out there (BBSC "each
-// player's own NPC quests"). The message: 31 00 00 00 | 18 00 00 00 | 00 00 00 00 | 01 00 08 00 |
-// 00 00 | u32 event id | u16 slot | u16 step | u32 | u32 (e.g. ... 50 23 00 00 22 00 d0 00: event
+// player's own NPC quests"). The message: 31 00 00 00 | 18 00 00 00 | 00 00 | 01 00 | 08 00 00 00 |
+// u32 event id | u16 slot | u16 step | u32 | u32 (e.g. ... 50 23 00 00 22 00 d0 00: event
 // 9040 slot 34 = Eileen's marks). A received one for a talk-driven event (TalkEvents, the Hunter's
 // Dream's 121xxxxx left out: BBSC's Dream rules) gets an event id no event has (0xFFFFFFFF), so our
 // copy keeps waiting for our own talk; the message stays in place. TalkEvents (2026-10-27, second
@@ -221,9 +221,11 @@ inline bool FilterEnabled() {
 }
 
 inline void FilterTalkEvents(void* data, std::size_t n) {
-    static constexpr std::array<std::uint8_t, 18> Signature{0x31, 0x00, 0x00, 0x00, 0x18, 0x00,
-                                                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-                                                            0x01, 0x00, 0x08, 0x00, 0x00, 0x00};
+    // 31 00 00 00 | 18 00 00 00 | 00 00 | 01 00 | 08 00 00 00 | event id (test 2026-10-27: the
+    // first cut had two zero bytes too many and never matched).
+    static constexpr std::array<std::uint8_t, 16> Signature{0x31, 0x00, 0x00, 0x00, 0x18, 0x00,
+                                                            0x00, 0x00, 0x00, 0x00, 0x01, 0x00,
+                                                            0x08, 0x00, 0x00, 0x00};
     if (data == nullptr || n < Signature.size() + 8 || !FilterEnabled()) {
         return;
     }
