@@ -10,7 +10,6 @@
 #include <map>
 #include <mutex>
 #include <string>
-#include <thread>
 #include <unordered_map>
 #include <vector>
 
@@ -18,9 +17,13 @@
 #include "core/libraries/kernel/threads.h"
 #include "core/libraries/np/np_common.h"
 #include "core/libraries/np/np_signaling/np_signaling.h"
+#include "core/libraries/np/np_signaling/np_signaling_bbsc.h"
 #include "core/libraries/np/np_types.h"
 
 namespace Libraries::Np::NpSignaling {
+
+extern NpCommon::OrbisNpCalloutContext g_callout_ctx;
+extern bool g_callout_ctx_active;
 
 constexpr s64 kActivateCooldownUs = 6'000'000;
 constexpr s64 kActivateBudgetMaxUs = 600'000'000;
@@ -51,7 +54,20 @@ enum class SignalingPacketType : u8 {
     EchoPong = 0x06,
     Handshake = 0x07,
     Control = 0x10,
+    // BBSC, not part of the PS4 protocol: the host tells its co-op partners which map it is in,
+    // so a guest can follow it through a lamp warp. Bloodborne itself never carries this - when a
+    // host changes stage the game simply ends the session - so there is nothing to piggyback on.
+    // Only BBSC builds send it, and any other build drops it as an unknown packet.
+    BbscFollow = 0x20,
+    // BBSC: the host's event flags for the map block it is in, so a guest following it there loads
+    // the host's world state (bosses, doors, shortcuts) instead of whatever its own flags say.
+    // 0x21 is taken (Matching2 frames, see P2PTransport::ClassifyInternal).
+    BbscWorldFlags = 0x22,
+    // BBSC: Duel Bell PvP state. The host broadcasts its state and a guest requests a toggle.
+    BbscPvp = 0x25,
 };
+static_assert(static_cast<u8>(SignalingPacketType::BbscWorldFlags) == kSignalingBbscWorldFlagsType);
+static_assert(static_cast<u8>(SignalingPacketType::BbscPvp) == kSignalingBbscPvpType);
 
 #pragma pack(push, 1)
 struct SignalingEchoPing {
@@ -109,6 +125,26 @@ struct SignalingControl {
 static_assert(sizeof(SignalingControl) == 0x32);
 #pragma pack(pop)
 
+#pragma pack(push, 1)
+struct SignalingBbscFollow {
+    u8 magic[4] = {kSignalingMagic[0], kSignalingMagic[1], kSignalingMagic[2], kSignalingMagic[3]};
+    u8 type = static_cast<u8>(SignalingPacketType::BbscFollow);
+    u8 kind = 0; // 0: "I am the host, this is where I am"
+    u32 packed_map = 0;
+    float x = 0.0f;
+    float y = 0.0f;
+    float z = 0.0f;
+    float heading = 0.0f;
+    u32 sequence = 0;
+    // The host's last lamp respawn point (global+0x1528), -1 if none. Added 2026-09-24: a dead
+    // guest respawns at the host's lamp. Older builds sent the 0x1E-byte packet without it.
+    s32 lamp_point = -1;
+};
+static_assert(sizeof(SignalingBbscFollow) == 0x22);
+inline constexpr size_t kSignalingBbscFollowV1Size = 0x1E;
+
+#pragma pack(pop)
+
 enum class ControlKind : u8 {
     ActivationRequest = 1,
     ActivationAck = 2,
@@ -131,8 +167,9 @@ enum class ConnState : s32 {
     Established = 10,
 };
 
-struct PeerTransport {
-    s32 transport_id = 0;
+struct ConnectionInfo {
+    OrbisNpSignalingConnectionId conn_id = 0;
+    OrbisNpSignalingContextId ctx_id = 0;
 
     u32 addr = 0;
     u16 port = 0;
@@ -140,41 +177,48 @@ struct PeerTransport {
     u32 local_addr = 0;
     u16 local_port = 0;
 
+    s32 status = ORBIS_NP_SIGNALING_CONN_STATUS_INACTIVE;
+
     OrbisNpId npid{};
     OrbisNpOnlineId online_id{};
-    OrbisNpOnlineId local_online_id{};
 
-    s32 status = ORBIS_NP_SIGNALING_CONN_STATUS_INACTIVE;
-    ConnState state = ConnState::Inactive;
-
-    bool peer_activated = false;
-    bool peer_established = false;
-    bool transport_established_fired = false;
-    bool is_initiator = false;
+    s32 activation_mode = 0;
 
     static constexpr u32 kProbeSampleCount = 6;
     s32 probe_rtt_samples[kProbeSampleCount] = {-1, -1, -1, -1, -1, -1};
     u32 probe_sample_write_index = 0;
 
     s64 last_echo_ping_us = 0;
+
     s64 last_peer_rx_us = 0;
-    s64 last_handshake_send_us = 0;
-};
 
-struct ConnectionInfo {
-    OrbisNpSignalingConnectionId conn_id = 0;
-    OrbisNpSignalingContextId ctx_id = 0;
-    s32 transport_id = 0;
-    s32 status = ORBIS_NP_SIGNALING_CONN_STATUS_INACTIVE;
-
-    OrbisNpId npid{};
-    OrbisNpOnlineId online_id{};
-    bool sig1_established_event_fired = false;
-    bool locally_activated = false;
+    ConnState state = ConnState::Inactive;
+    bool established_fired = false;
+    bool established_event_fired = false;
     bool peer_activated = false;
+    bool locally_activated = false;
     bool peer_activated_fired = false;
+    bool peer_established = false;
     bool mutual_fired = false;
     bool dead_fired = false;
+    bool is_initiator = false;
+    s64 last_handshake_send_us = 0;
+
+    NpCommon::OrbisNpCalloutEntry timeout_callout{};
+    bool timeout_callout_armed = false;
+    NpCommon::OrbisNpCalloutEntry step_callout{};
+    bool step_callout_armed = false;
+    bool deactivate_lingering = false;
+
+    // BBSC rejoin fix (2026-10-12): the peer's connection id from its handshake packets - a new
+    // one on an established connection means the peer started over (left and came back).
+    u32 peer_conn_id = 0;
+    // Re-activated after a deactivate: established again only when the peer answers a Check
+    // (10 s, else DEAD) - a peer that had left must not keep the connection "active" forever.
+    bool revalidating = false;
+    s64 revalidate_since_us = 0;
+
+    u32 echo_derived_value = 0;
 };
 
 struct NpSignalingContext {
@@ -244,65 +288,38 @@ struct PeerNetInfoResult {
     u32 nat_route_kind = 0;
 };
 
+extern std::unordered_map<s32, NpSignalingContext> g_contexts;
+extern std::unordered_map<s32, ConnectionInfo> g_connections;
+extern std::unordered_map<CtxNpIdKey, s32, CtxNpIdKeyHash> g_npid_to_conn;
+extern std::unordered_map<s32, PeerNetInfoResult> g_peer_netinfo_results;
 struct PendingActivation {
     OrbisNpSignalingConnectionId conn_id = 0;
     std::string peer_online_id;
     bool start_handshake = true;
 };
+extern std::vector<PendingActivation> g_pending_activations;
+extern u32 g_peer_netinfo_next_id;
+extern u32 g_peak_connection_count;
+extern u32 g_last_assigned_context_id;
+extern u32 g_connection_id_seed;
+extern bool g_initialized;
 
-struct NpSignalingState {
-    std::unordered_map<s32, NpSignalingContext> contexts;
-    std::unordered_map<s32, ConnectionInfo> connections;
-    std::unordered_map<s32, PeerTransport> peer_transports;
-    std::unordered_map<CtxNpIdKey, s32, CtxNpIdKeyHash> npid_to_conn;
-    std::unordered_map<s32, PeerNetInfoResult> peer_netinfo_results;
-    std::vector<PendingActivation> pending_activations;
-
-    u32 peer_netinfo_next_id = 1;
-    u32 peak_connection_count = 0;
-    u32 last_assigned_context_id = 0;
-    u32 connection_id_seed = 0;
-    u32 transport_id_seed = 0;
-    bool initialized = false;
-
-    std::recursive_mutex mutex;
-
-    std::multimap<std::chrono::steady_clock::time_point, QueuedDispatch> dispatch_queue;
-    std::mutex dispatch_mutex;
-    std::condition_variable dispatch_cv;
-    Libraries::Kernel::PthreadT dispatch_thread = nullptr;
-    bool dispatch_stop = false;
-
-    std::atomic<bool> runtime_stop{false};
-    std::mutex runtime_thread_mutex;
-    std::thread runtime_thread;
-    std::mutex activation_mutex;
-    std::condition_variable activation_cv;
-    std::thread activation_thread;
-    u32 context_refs = 0;
-
-    void ResetSig1Data() {
-        contexts.clear();
-        connections.clear();
-        npid_to_conn.clear();
-        peer_netinfo_results.clear();
-        pending_activations.clear();
-        peer_netinfo_next_id = 1;
-        peak_connection_count = 0;
-        last_assigned_context_id = 0;
-        connection_id_seed = 0;
-    }
-};
+extern Libraries::Kernel::PthreadMutexT g_mutex_storage;
 
 struct SignalingMutexGuard {
     SignalingMutexGuard();
-    ~SignalingMutexGuard() = default;
+    ~SignalingMutexGuard();
     SignalingMutexGuard(const SignalingMutexGuard&) = delete;
     SignalingMutexGuard& operator=(const SignalingMutexGuard&) = delete;
-
-private:
-    std::unique_lock<std::recursive_mutex> lock;
 };
+
+void InitSignalingMutex();
+void DestroySignalingMutex();
+
+extern std::multimap<std::chrono::steady_clock::time_point, QueuedDispatch> g_dispatch_queue;
+extern std::mutex g_dispatch_mutex;
+extern std::condition_variable g_dispatch_cv;
+extern bool g_dispatch_stop;
 
 long long NowMs();
 s64 NowUs();
@@ -340,11 +357,46 @@ bool TakePeerNetInfoResultLocked(OrbisNpSignalingContextId ctx_id, s32 req_or_co
                                  PeerNetInfoResult* out);
 bool DropPeerNetInfoResultLocked(OrbisNpSignalingContextId ctx_id, s32 req_or_conn_id);
 
+void RecordRttSampleLocked(OrbisNpSignalingConnectionId conn_id, s32 rtt_us);
+void SendEchoPings();
+
 void DispatchConnectionEvent(OrbisNpSignalingConnectionId conn_id, s32 event_type, s32 event_data);
 
 void DispatchPeerActivatedEvent(OrbisNpSignalingConnectionId conn_id);
 
+void CloseConnectionAndDispatchDead(OrbisNpSignalingConnectionId conn_id, s32 error_code);
+
+void EstablishConnection(OrbisNpSignalingConnectionId conn_id, bool peer_activated_hint);
+
+void DeactivateConnectionFaithful(OrbisNpSignalingConnectionId conn_id);
+
+void TerminateConnectionFaithful(OrbisNpSignalingConnectionId conn_id);
+
+void StartHandshakeInitiator(OrbisNpSignalingConnectionId conn_id);
+
+void QueueActivationLocked(OrbisNpSignalingConnectionId conn_id, std::string_view peer_online_id,
+                           bool start_handshake = true);
+void ProcessPendingActivations();
+
+void HandleHandshakePacket(u32 from_addr, u16 from_port, const SignalingHandshake& pkt);
+
+void ArmConnectTimeoutLocked(OrbisNpSignalingConnectionId conn_id);
+void ClearLingerAndTimeoutLocked(OrbisNpSignalingConnectionId conn_id);
+// BBSC rejoin fix: the game activates a connection it deactivated before - check the peer is
+// still there before it counts as established again.
+void BeginRevalidationLocked(OrbisNpSignalingConnectionId conn_id);
+
+void SendActivationRequestLocked(const ConnectionInfo& ci);
+
+void SendControlCloseLocked(const ConnectionInfo& ci, ControlReason reason);
+
+void HandleControlPacket(u32 from_addr, u16 from_port, const SignalingControl& pkt);
+
 const char* SignalingEventName(u32 event_type);
 bool ConsumeActivationBudgetLocked(NpSignalingContext& ctx);
+void SendStunPing(OrbisNpSignalingContextId ctx_id);
+void ClearActiveDeadlines();
+void ClearConnectionDeadlineForPeer(std::string_view npid);
+void SetRoomLeft();
 
 } // namespace Libraries::Np::NpSignaling

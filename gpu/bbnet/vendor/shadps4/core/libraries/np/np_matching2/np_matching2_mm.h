@@ -35,7 +35,6 @@ enum class MmCommand : u16 {
     GetUserInfoList = 113,
     GetRoomMemberDataExternalList = 114,
     SendRoomMessage = 115,
-    SetRoomMemberDataInternal = 116,
 };
 
 void SetMmShadNetClient(std::shared_ptr<ShadNet::ShadNetClient> client,
@@ -82,8 +81,6 @@ s32 MmSendRoomMessage(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestI
                       const OrbisNpMatching2SendRoomMessageRequest& request);
 s32 MmSetRoomDataInternal(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
                           const OrbisNpMatching2SetRoomDataInternalRequest& request);
-s32 MmSetRoomMemberDataInternal(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
-                                const OrbisNpMatching2SetRoomMemberDataInternalRequest& request);
 s32 MmSetRoomDataExternal(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
                           const OrbisNpMatching2SetRoomDataExternalRequest& request);
 s32 MmKickoutRoomMember(OrbisNpMatching2ContextId ctx_id, OrbisNpMatching2RequestId req_id,
@@ -93,5 +90,9 @@ u32 GetMmServerAddr();
 u16 GetMmServerUdpPort();
 
 bool RequestSignalingInfos(std::string_view target_online_id, u32* out_addr, u16* out_port);
+
+// BBSC experimental re-insertion: re-delivers member-joined (optionally member-left first) and
+// signaling-established callbacks for every other member of the current room. Returns the count.
+int BbscReplayRoomMembers(bool announce_left);
 
 } // namespace Libraries::Np::NpMatching2

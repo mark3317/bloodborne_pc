@@ -23,48 +23,13 @@
 
 namespace Libraries::Np {
 
-NpHandler::NpHandler()
-    : m_matching2_contexts(
-          std::unique_ptr<NpMatching2::ContextManager>(new NpMatching2::ContextManager())),
-      m_matching2_state(std::make_unique<NpMatching2::NpMatching2State>()) {}
+NpHandler::NpHandler() = default;
 
 NpHandler::~NpHandler() = default;
 
 NpHandler& NpHandler::GetInstance() {
     static NpHandler s_instance;
     return s_instance;
-}
-
-NpMatching2::ContextManager& NpHandler::GetMatching2ContextManager() {
-    return *m_matching2_contexts;
-}
-
-NpMatching2::NpMatching2State& NpHandler::GetMatching2State() {
-    return *m_matching2_state;
-}
-
-NpHandler::Matching2CacheGuard NpHandler::LockMatching2Cache(
-    NpMatching2::OrbisNpMatching2ContextId ctx_id) {
-    std::shared_ptr<NpMatching2::Matching2ContextCache> cache;
-    {
-        std::lock_guard lock(m_mutex_matching2_cache);
-        auto& entry = m_matching2_cache[ctx_id];
-        if (!entry) {
-            entry = std::make_shared<NpMatching2::Matching2ContextCache>();
-        }
-        cache = entry;
-    }
-    return Matching2CacheGuard(std::move(cache));
-}
-
-void NpHandler::ResetMatching2Cache(NpMatching2::OrbisNpMatching2ContextId ctx_id) {
-    std::lock_guard lock(m_mutex_matching2_cache);
-    m_matching2_cache.erase(ctx_id);
-}
-
-void NpHandler::ResetMatching2Caches() {
-    std::lock_guard lock(m_mutex_matching2_cache);
-    m_matching2_cache.clear();
 }
 
 std::pair<std::string, u16> NpHandler::ParseServerAddress() const {
