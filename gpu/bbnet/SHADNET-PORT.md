@@ -28,3 +28,14 @@ GPL-3.0-or-later; copyright remains with the bbhost contributors. With that pool
 sceNet imports are these, ahead of the shadPS4 ones; the shadNet pool is unchanged. sceHttp stays
 shadPS4's, with two `bbport` hooks that act only in that pool: `*.example.com` host-override keys
 and the account token and ruleset headers.
+
+## BBSC signaling and matching2
+
+`core/libraries/np/np_signaling/` and `np_matching2/` are not shadPS4 0.20's: they are the BBSC
+0.0.2 emulator's (https://github.com/CLSAMG22/BBSC, `emulator/src/core/libraries/np/`, CLS_AMG,
+GPL-2.0-or-later), which join a co-op summon within seconds where 0.20's took one or two more
+rings. They run on this port's P2P transport and BBSC relay (`net_p2p.h` keeps BBSC's relay
+names), with shadPS4 0.20's SDK structs. Changes, marked `bbport`: the STUN ping and echo use
+BBSC's frame (the shadNet server reads no other), an Offer from an unknown peer stands for its
+lost ActivationRequest, and BBSC's game-side hooks (follow, world flags, PvP, timeline) do nothing
+here - the BBSC mod (bbsc.dll) does that over its own channel.
