@@ -107,6 +107,29 @@ inline constexpr std::array<std::uint32_t, 788> NpcQuestFlags{
     73600530, 79900100, 79900104, 79900106, 79900107, 79900108, 79900109, 79900111
 };
 
+// 2026-10-27, second pass: the first run found no flag number in any game packet - the game may
+// pass the talk-driven events themselves (EMEVD 2000[02] "network sync" / 1000[09] "event result
+// network approval"), so the ids of the 129 talk-driven events (BBSC BbscTalkEventTriggers) and the
+// flag group keys of their triggers (flag / 1000) are looked for too.
+inline constexpr std::array<std::uint32_t, 129> TalkEvents{7200, 9040, 9100, 9700, 9701, 9702, 9703, 9710, 9720, 9780, 12100110, 12100112, 12100113, 12100116, 12100123, 12100161, 12100165, 12100180, 12101022, 12101024, 12101026, 12101028, 12101802, 12105043, 12105060, 12105070, 12105210, 12107100, 12107200, 12300703, 12300705, 12304400, 12304500, 12400401, 12400403, 12400500, 12400523, 12400524, 12400525, 12400566, 12400567, 12400591, 12400624, 12400650, 12400658, 12400701, 12400708, 12400732, 12400840, 12400900, 12400901, 12410652, 12410657, 12410662, 12410668, 12410676, 12410701, 12410703, 12410704, 12410705, 12410706, 12410715, 12410721, 12410731, 12410732, 12410736, 12410738, 12410742, 12410743, 12410750, 12410762, 12410763, 12410785, 12410801, 12410808, 12410830, 12410850, 12414401, 12414500, 12420500, 12500012, 12500013, 12500014, 12500019, 12500051, 12600701, 12604960, 12604970, 12604980, 12700704, 12700705, 12700901, 12700906, 12700908, 12800902, 12800903, 12800904, 12800905, 12906746, 13200103, 13200105, 13200107, 13200121, 13400940, 13400944, 13400950, 13400951, 13400953, 13400980, 13500943, 13500945, 13500949, 13500950, 13500951, 13500952, 13500953, 13500960, 13500965, 13500968, 13500980, 13500994, 13501920, 13501940, 13600942, 13600943, 13600950, 13600951, 13600952, 13600956};
+inline constexpr std::array<std::uint32_t, 17> TalkGroupKeys{12101, 12105, 70000, 72100, 72200, 72300, 72400, 72410, 72500, 72600, 72700, 72800, 72900, 73200, 73400, 73500, 73600};
+
+inline char Kind(std::uint32_t v) {
+    if (v >= NpcQuestFlags.front() && v <= NpcQuestFlags.back() &&
+        std::binary_search(NpcQuestFlags.begin(), NpcQuestFlags.end(), v)) {
+        return 'f';
+    }
+    if (v >= TalkEvents.front() && v <= TalkEvents.back() &&
+        std::binary_search(TalkEvents.begin(), TalkEvents.end(), v)) {
+        return 'e';
+    }
+    if (v >= TalkGroupKeys.front() && v <= TalkGroupKeys.back() &&
+        std::binary_search(TalkGroupKeys.begin(), TalkGroupKeys.end(), v)) {
+        return 'g';
+    }
+    return 0;
+}
+
 inline bool IsFlag(std::uint32_t v) {
     if (v < NpcQuestFlags.front() || v > NpcQuestFlags.back()) {
         return false;
@@ -117,6 +140,14 @@ inline bool IsFlag(std::uint32_t v) {
 inline void Scan(const char* dir, int socket, std::uint16_t vport, const void* data,
                  std::size_t n) {
     static std::atomic<int> lines{0};
+    // Proof of life: the first packet of each direction, and a count every 5000.
+    static std::atomic<std::uint64_t> packets[2]{};
+    const int d = dir[0] == 's' ? 0 : 1;
+    const std::uint64_t k = packets[d].fetch_add(1, std::memory_order_relaxed);
+    if (k == 0 || (k + 1) % 5000 == 0) {
+        LOG_INFO(Lib_Net, "bbport flag watch: {} packet #{} (socket {}, vport {}, len {})", dir,
+                 k + 1, socket, vport, n);
+    }
     if (data == nullptr || n < 4 || n > 65536 || lines.load(std::memory_order_relaxed) >= 400) {
         return;
     }
@@ -129,17 +160,18 @@ inline void Scan(const char* dir, int socket, std::uint16_t vport, const void* d
                                  std::uint32_t{b[i + 2]} << 16 | std::uint32_t{b[i + 3]} << 24;
         const std::uint32_t be = std::uint32_t{b[i + 3]} | std::uint32_t{b[i + 2]} << 8 |
                                  std::uint32_t{b[i + 1]} << 16 | std::uint32_t{b[i]} << 24;
-        const bool hit_le = IsFlag(le);
-        const bool hit_be = !hit_le && IsFlag(be);
-        if (!hit_le && !hit_be) {
+        const char kind_le = le > 9000 ? Kind(le) : 0;
+        const char kind_be = kind_le == 0 && be > 9000 ? Kind(be) : 0;
+        if (kind_le == 0 && kind_be == 0) {
             continue;
         }
-        const std::uint32_t v = hit_le ? le : be;
+        const std::uint32_t v = kind_le != 0 ? le : be;
         if (count == 0) {
             first = v;
         }
         if (++count <= 8) {
-            hits += fmt::format(" {}@{}{}", v, i, hit_le ? "" : "be");
+            hits += fmt::format(" {}{}@{}{}", kind_le != 0 ? kind_le : kind_be, v, i,
+                                kind_le != 0 ? "" : "be");
         }
     }
     if (count == 0) {
@@ -160,7 +192,7 @@ inline void Scan(const char* dir, int socket, std::uint16_t vport, const void* d
     for (std::size_t i = 0; i < std::min<std::size_t>(n, 96); ++i) {
         head += fmt::format("{:02x}", b[i]);
     }
-    LOG_INFO(Lib_Net, "bbport flag watch: {} socket {} vport {} len {}: {} flag number(s){} | {}",
+    LOG_INFO(Lib_Net, "bbport flag watch: {} socket {} vport {} len {}: {} hit(s) (f flag, e event, g group){} | {}",
              dir, socket, vport, n, count, hits, head);
 }
 
