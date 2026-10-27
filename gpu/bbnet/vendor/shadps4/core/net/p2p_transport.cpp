@@ -235,7 +235,10 @@ void Transport::ThreadMain() {
         {
             std::scoped_lock lock{mutex_};
             deadline = EarliestDeadline();
-            if (relay) {
+            // bbport: tick while the relay may come on too - our online id can arrive after the
+            // transport started (BBSC signaling sets it when its context is created), and with no
+            // tick this thread would sleep until a packet came and never register.
+            if (relay_family) {
                 const auto tick = Clock::now() + std::chrono::seconds(1);
                 if (!deadline || *deadline > tick) {
                     deadline = tick;
