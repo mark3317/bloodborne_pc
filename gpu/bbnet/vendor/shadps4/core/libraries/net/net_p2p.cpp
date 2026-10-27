@@ -164,6 +164,13 @@ int ChannelSendTo(const void* data, u32 len, u32 dest_addr, u16 dest_port) {
     to.sin_port = dest_port;
     const auto endpoint =
         P2P::Endpoint::FromSockaddr(reinterpret_cast<const sockaddr*>(&to), sizeof(to));
+    // bbport: the STUN ping to the shadNet server (BBSC's StunPing: 21 bytes, cmd 0x01) goes in
+    // BBSC's frame, the one that server reads (see Transport::SendRaw).
+    if (len == 21 && static_cast<const u8*>(data)[0] == 0x01) {
+        std::vector<u8> framed{0xFF, 0xFF, 0xFF, 0xFF};
+        framed.insert(framed.end(), static_cast<const u8*>(data), static_cast<const u8*>(data) + len);
+        return transport->SendRaw(framed, endpoint) == Error::Ok ? static_cast<int>(len) : -1;
+    }
     const Error e = transport->SendSignaling(
         {static_cast<const u8*>(data), static_cast<size_t>(len)}, endpoint);
     return e == Error::Ok ? static_cast<int>(len) : -1;

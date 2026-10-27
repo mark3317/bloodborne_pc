@@ -350,6 +350,11 @@ Error Transport::SendPacket(std::span<const u8> packet, const Endpoint& to) {
     return r.error;
 }
 
+Error Transport::SendRaw(std::span<const u8> packet, const Endpoint& to) {
+    return Host::SendTo(socket_, packet.data(), packet.size(), 0, to.Sockaddr(), to.Length())
+        .error;
+}
+
 u32 Transport::NewIss() {
     iss_state_ += 0x9e3779b97f4a7c15ull;
     u64 z = iss_state_;
@@ -382,6 +387,18 @@ u16 Transport::AllocateVport(bool stream) {
 
 void Transport::HandlePacket(std::span<const u8> packet, const Endpoint& from,
                              Clock::time_point now) {
+    // bbport: the shadNet server's STUN echo comes in BBSC's frame (u16 vport ffff, u16 vport
+    // ffff, then the 6-byte echo), which the codec does not read - to the signaling queue.
+    if (packet.size() == 10 && packet[0] == 0xFF && packet[1] == 0xFF && packet[2] == 0xFF &&
+        packet[3] == 0xFF) {
+        std::vector<u8> payload(packet.begin() + 4, packet.end());
+        const size_t channel = config_.classify_signaling ? config_.classify_signaling(payload) : 0;
+        if (channel < signaling_.size() &&
+            signaling_[channel].size() < config_.signaling_queue_packets) {
+            signaling_[channel].emplace_back(std::move(payload), from);
+        }
+        return;
+    }
     Codec::Decoded decoded = codec_->Decode(packet, from);
     switch (decoded.kind) {
     case Codec::Kind::Stream:

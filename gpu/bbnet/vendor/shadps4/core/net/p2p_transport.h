@@ -202,6 +202,9 @@ public:
     std::shared_ptr<StreamSocket> CreateStream();
 
     Error SendSignaling(std::span<const u8> data, const Endpoint& to);
+    // bbport: a packet as it is (no framing, no relay) - the shadNet server's STUN echo speaks
+    // BBSC's own frame ("vport ffff -> ffff" header), not the PS4 framing of the codec.
+    Error SendRaw(std::span<const u8> packet, const Endpoint& to);
     bool RecvSignaling(size_t channel, std::vector<u8>* data, Endpoint* from);
 
     void SetOutgoingLossForTesting(double probability);
