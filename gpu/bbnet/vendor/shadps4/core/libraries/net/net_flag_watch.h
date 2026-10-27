@@ -16,6 +16,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <cstdlib>
 #include <mutex>
 #include <set>
 #include <string>
@@ -194,6 +195,63 @@ inline void Scan(const char* dir, int socket, std::uint16_t vport, const void* d
     }
     LOG_INFO(Lib_Net, "bbport flag watch: {} socket {} vport {} len {}: {} hit(s) (f flag, e event, g group){} | {}",
              dir, socket, vport, n, count, hits, head);
+}
+
+
+// The game's event sync (found 2026-10-27 with the scan above): each player's game sends the runs
+// of its events to the others, one message per run step, and the other players' copies of the
+// same event follow it - so a talk-driven event (Eileen's "first greeting" step 12410801, the
+// talk gifts of 9040 / 9100) ran on everyone when one player talked, and ran out there (BBSC "each
+// player's own NPC quests"). The message: 31 00 00 00 | 18 00 00 00 | 00 00 00 00 | 01 00 08 00 |
+// 00 00 | u32 event id | u16 slot | u16 step | u32 | u32 (e.g. ... 50 23 00 00 22 00 d0 00: event
+// 9040 slot 34 = Eileen's marks). A received one for a talk-driven event (TalkEvents, the Hunter's
+// Dream's 121xxxxx left out: BBSC's Dream rules) gets an event id no event has (0xFFFFFFFF), so our
+// copy keeps waiting for our own talk; the message stays in place (the game's reliable channel
+// and its sequence numbers are untouched). SHADPS4_BBPORT_EVENT_FILTER=0 turns it off.
+inline bool FilterEnabled() {
+    static const bool enabled = [] {
+        const char* value = std::getenv("SHADPS4_BBPORT_EVENT_FILTER");
+        return value == nullptr || std::string(value) != "0";
+    }();
+    return enabled;
+}
+
+inline void FilterTalkEvents(void* data, std::size_t n) {
+    static constexpr std::array<std::uint8_t, 18> Signature{0x31, 0x00, 0x00, 0x00, 0x18, 0x00,
+                                                            0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                                            0x01, 0x00, 0x08, 0x00, 0x00, 0x00};
+    if (data == nullptr || n < Signature.size() + 8 || !FilterEnabled()) {
+        return;
+    }
+    auto* b = static_cast<std::uint8_t*>(data);
+    for (std::size_t i = 0; i + Signature.size() + 8 <= n; ++i) {
+        if (b[i] != 0x31 || !std::equal(Signature.begin(), Signature.end(), b + i)) {
+            continue;
+        }
+        std::uint8_t* id = b + i + Signature.size();
+        const std::uint32_t event = std::uint32_t{id[0]} | std::uint32_t{id[1]} << 8 |
+                                    std::uint32_t{id[2]} << 16 | std::uint32_t{id[3]} << 24;
+        const std::uint16_t slot = static_cast<std::uint16_t>(id[4] | id[5] << 8);
+        i += Signature.size() + 3;
+        if (event / 100000 == 121 || !std::binary_search(TalkEvents.begin(), TalkEvents.end(),
+                                                         event)) {
+            continue;
+        }
+        id[0] = id[1] = id[2] = id[3] = 0xFF;
+        static std::mutex mutex;
+        static std::set<std::uint64_t> logged;
+        bool first = false;
+        {
+            std::scoped_lock lock{mutex};
+            first = logged.size() < 512 &&
+                    logged.insert(std::uint64_t{event} << 16 | slot).second;
+        }
+        if (first) {
+            LOG_INFO(Lib_Net, "bbport event filter: the other player's run of talk-driven event {} "
+                              "(slot {}) not followed here",
+                     event, slot);
+        }
+    }
 }
 
 } // namespace Libraries::Net::FlagWatch

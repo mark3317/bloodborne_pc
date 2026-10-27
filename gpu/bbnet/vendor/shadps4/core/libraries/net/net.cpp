@@ -1989,6 +1989,7 @@ static s32 sceNetRecvfromImpl(OrbisNetId s, void* buf, u64 len, s32 flags, Orbis
                                                     addr ? &from_vport : nullptr, msg.waitall);
         if (r.error == Error::Ok && !msg.peek && r.value > 0) {
             FlagWatch::Scan("recv", s, from_vport, buf, static_cast<size_t>(r.value));
+            FlagWatch::FilterTalkEvents(buf, static_cast<size_t>(r.value));
         }
         if (r.error == Error::Ok && addr != nullptr) {
             ToOrbisP2PAddress(from, from_vport, KindOf(info), addr, paddrlen);
