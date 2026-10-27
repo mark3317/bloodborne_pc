@@ -31,6 +31,7 @@
 #include "core/libraries/libs.h"
 #include "core/libraries/net/net.h"
 #include "core/libraries/net/net_error.h"
+#include "core/libraries/net/net_flag_watch.h"
 #include "core/libraries/net/net_log.h"
 #include "core/libraries/net/net_p2p.h"
 #include "core/libraries/net/net_p2p_ioctl.h"
@@ -1985,7 +1986,10 @@ static s32 sceNetRecvfromImpl(OrbisNetId s, void* buf, u64 len, s32 flags, Orbis
         u16 from_vport = 0;
         const auto r = Core::Net::P2PSocketRecvFrom(s, buf, static_cast<size_t>(len), msg.peek,
                                                     msg.dontwait, addr ? &from : nullptr,
-                                                    addr ? &from_vport : nullptr, msg.waitall);
+                                                    addr ? &from_vport : nullptr, msg.waitall);
+        if (r.error == Error::Ok && !msg.peek && r.value > 0) {
+            FlagWatch::Scan("recv", s, from_vport, buf, static_cast<size_t>(r.value));
+        }
         if (r.error == Error::Ok && addr != nullptr) {
             ToOrbisP2PAddress(from, from_vport, KindOf(info), addr, paddrlen);
         }
@@ -2284,6 +2288,7 @@ static s32 sceNetSendtoImpl(OrbisNetId s, const void* buf, u64 len, s32 flags,
             LOG_WARNING(Lib_Net,
                         "per-message protection ignored on a stream (fixed per connection)");
         }
+        FlagWatch::Scan("send", s, to_vport, buf, static_cast<size_t>(len));
         return Return(Core::Net::P2PSocketSendTo(s, buf, static_cast<size_t>(len), msg.dontwait,
                                                  addr ? &to : nullptr, to_vport,
                                                  {msg.crypto, msg.signature}));
