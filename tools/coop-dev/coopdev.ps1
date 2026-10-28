@@ -9,6 +9,7 @@
 #   save-list         snapshots in <root>\coop-dev\saves
 #   save-snap         -Name <name> [-Desc <text>]: the active SPRJ0005 (+ BBSC own-world / bell-pending)
 #   save-restore      -Name <name>: the current save goes to _auto-<stamp> first, then the snapshot is mirrored back
+#   set-user-dir      -Source <folder>: the launcher's user_dir (saves) -> that folder; prints the old one
 #   job-start         -Source <a .cmd file>: runs it detached (WMI, survives the ssh session), prints the pid
 #   collect           -Since <unix seconds> -RunId <id>: logs newer than Since -> <root>\coop-dev\runs\<id>\
 # All refuse to touch saves/installs while the game runs.
@@ -198,6 +199,24 @@ switch ($Action) {
     "game_running=$([bool]$r.Count)" | Set-Content (Join-Path $out 'state.txt')
     Get-ChildItem $out -Recurse -File | ForEach-Object { "{0,10} {1}" -f $_.Length, $_.FullName.Substring($out.Length + 1) }
     "collected=$out"
+}
+'set-user-dir' {
+    RequireStopped
+    if (Get-Process -Name 'Bloodborne', 'Play Bloodborne' -ErrorAction SilentlyContinue) { throw 'LAUNCHER_RUNNING: close the launcher first' }
+    if (-not (Test-Path (Join-Path $Source 'savedata'))) { throw "no savedata in $Source" }
+    $p = $null
+    foreach ($n in 'bbport-launcher', 'bbport-launcher-coop') {
+        $c = Join-Path $env:APPDATA "$n\settings.json"; if (Test-Path $c) { $p = $c; break }
+    }
+    if (-not $p) { throw 'no launcher settings.json' }
+    $raw = Get-Content $p -Raw -Encoding UTF8
+    $old = (ConvertFrom-Json $raw).user_dir
+    $new = ($Source -replace '\\', '/')
+    $raw2 = [regex]::Replace($raw, '("user_dir"\s*:\s*")[^"]*(")', { param($m) $m.Groups[1].Value + $new + $m.Groups[2].Value })
+    if ($raw2 -eq $raw -and $old -ne $new) { throw 'user_dir key not found' }
+    Copy-Item $p "$p.bak-coopdev" -Force
+    [IO.File]::WriteAllText($p, $raw2, (New-Object Text.UTF8Encoding $false))
+    "user_dir: $old -> $new"
 }
 'job-start' {
     if (-not (Test-Path $Source)) { throw "no $Source" }

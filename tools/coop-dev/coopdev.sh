@@ -15,6 +15,8 @@
 #   coopdev.sh save list|snap|restore pc|laptop [name] [desc]
 #   coopdev.sh test begin "<label>"          marks the start of a test run (time, VPS log offsets)
 #   coopdev.sh test collect [run-id]         logs since the start -> ~/mnt/bloodborne_pc/out/coop-dev/runs/<id>/
+#   coopdev.sh userdir pc|laptop <folder>   launcher's save folder (user_dir); tests: pc D:\\Games\\Bloodborne\\testHost,
+#                                            laptop C:\\Games\\Bloodborne\\test; friends' games on pc: D:\\Games\\Bloodborne\\ddd
 #   coopdev.sh ps pc|laptop "<powershell>"   run a PowerShell one-liner there (UTF-8 output)
 set -uo pipefail
 
@@ -196,10 +198,18 @@ cmd_test() {
     esac
 }
 
-cmd_ps() { local h; h=$(host_of "$1"); ssh "$h" "powershell -NoProfile -Command \"[Console]::OutputEncoding=[Text.Encoding]::UTF8; $2\"" | tr -d '\r'; }
+cmd_userdir() { winps "$1" -Action set-user-dir -Source "\"$2\""; }
+
+cmd_ps() {  # the script goes over as a file: no cmd.exe quoting
+    local m=$1 h r f; h=$(host_of "$m"); r=$(root_of "$m"); f=$STATE/ps-$$.ps1
+    printf '[Console]::OutputEncoding=[Text.Encoding]::UTF8\r\n%s\r\n' "$2" > "$f"
+    ssh "$h" "if not exist \"$r\\coop-dev\" mkdir \"$r\\coop-dev\"" >/dev/null &&
+    scp -q "$f" "$h:$(fwd "$r")/coop-dev/adhoc.ps1" &&
+    ssh "$h" "powershell -NoProfile -ExecutionPolicy Bypass -File \"$r\\coop-dev\\adhoc.ps1\"" 2>&1 | tr -d '\r'
+}
 
 c=${1:-}; shift || true
 case $c in
-setup|status|commit|push|build|job|deploy|save|test|ps) "cmd_$c" "$@" ;;
+setup|status|commit|push|build|job|deploy|save|test|userdir|ps) "cmd_$c" "$@" ;;
 *) sed -n '2,20p' "$0"; exit 2 ;;
 esac
