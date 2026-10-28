@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git submodule update:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(wc:*)",
+      "Bash(python:*)",
+      "Bash(py:*)",
+      "Bash(ssh remote_server:*)",
+      "Bash(ssh local_pc:*)",
+      "Bash(scp:*)",
+      "Bash(bash build.sh:*)",
+      "Bash(bash packaging/windows/build-coop-package.sh:*)",
+      "Bash(SKIP_BUILD=1 bash packaging/windows/build-coop-package.sh:*)",
+      "Bash(python -m pytest:*)"
+    ],
+    "deny": [
+      "Bash(git push origin:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Edit(D:\\Games\\Bloodborne\\game\\**)",
+      "Write(D:\\Games\\Bloodborne\\game\\**)"
+    ]
+  }
+}
