@@ -1,3 +1,6 @@
 # git apply needs patches byte for byte; a CRLF checkout (core.autocrlf) breaks them.
 *.patch text eol=lf
 shader_catalog/** binary
+
+# coop-dev scripts run in a Linux shell: keep LF
+tools/coop-dev/*.sh text eol=lf

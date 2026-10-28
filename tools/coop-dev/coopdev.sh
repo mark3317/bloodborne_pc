@@ -6,6 +6,7 @@
 #   coopdev.sh setup                         ssh key/config/known_hosts into ~/.ssh (from ~/mnt/claude-ssh)
 #   coopdev.sh status                        git state of both repos, game/launcher on pc+laptop, VPS services
 #   coopdev.sh commit bbsc|port "<msg>" [new files...]   git add -u (+ listed new files) && commit on mark_pc
+#                                            (trailers: $CLAUDE_COAUTHOR, $CLAUDE_SESSION if set)
 #   coopdev.sh push bbsc|port                push the working branch to the `mark` remote (the fork)
 #   coopdev.sh build mod|port|package [--skip-build]     background job on mark_pc; see `job`
 #   coopdev.sh job [name] [--wait]           state / tail of a build job (mod, port, package)
@@ -56,7 +57,8 @@ cmd_commit() {
     local r=$1 msg=$2; shift 2
     local w; w=$(repo_w "$r")
     local f=$STATE/commit-msg.txt
-    printf '%s\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n' "$msg" > "$f"
+    printf '%s\n\nCo-Authored-By: %s\n' "$msg" "${CLAUDE_COAUTHOR:-Claude <noreply@anthropic.com>}" > "$f"
+    [[ -n ${CLAUDE_SESSION:-} ]] && printf 'Claude-Session: %s\n' "$CLAUDE_SESSION" >> "$f"
     scp -q "$f" "mark_pc:$(fwd "$w")/.git/COOPDEV_MSG" || return 1
     local add=""; for p in "$@"; do add+=" \"$p\""; done
     ssh mark_pc "cd /d $w && git add -u ${add:+&& git add --$add} && git commit -q -F .git/COOPDEV_MSG && del .git\\COOPDEV_MSG && git log --oneline -1 && git status --short" | tr -d '\r'
