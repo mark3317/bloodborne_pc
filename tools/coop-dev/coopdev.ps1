@@ -192,9 +192,13 @@ switch ($Action) {
             }
     }
     Get-WinEvent -FilterHashtable @{ LogName = 'Application'; StartTime = $t; Id = 1000, 1001, 1002 } -ErrorAction SilentlyContinue |
-        Where-Object { $_.Message -match 'bb-probe|bb-play|bbsc|Bloodborne' } |
+        Where-Object { $_.Message -match 'bb-probe|bb-play|bbsc|Bloodborne|LiveKernelEvent|nvlddmkm' } |
         ForEach-Object { "[$($_.TimeCreated.ToString('s'))] id=$($_.Id)`n$($_.Message)`n" } |
         Set-Content (Join-Path $out 'windows-crash-events.txt') -Encoding UTF8
+    Get-WinEvent -FilterHashtable @{ LogName = 'System'; StartTime = $t } -ErrorAction SilentlyContinue |
+        Where-Object { $_.ProviderName -match '^(Display|nvlddmkm|Microsoft-Windows-WHEA-Logger)$' } |
+        ForEach-Object { $_.ToXml() } |
+        Set-Content (Join-Path $out 'windows-gpu-events.xml') -Encoding UTF8
     $r = GameRunning
     "game_running=$([bool]$r.Count)" | Set-Content (Join-Path $out 'state.txt')
     Get-ChildItem $out -Recurse -File | ForEach-Object { "{0,10} {1}" -f $_.Length, $_.FullName.Substring($out.Length + 1) }
