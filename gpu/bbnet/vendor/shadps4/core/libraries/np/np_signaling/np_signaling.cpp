@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <cstring>
+#include <optional>
 #include <vector>
 
 #include "common/logging/log.h"
@@ -29,7 +30,8 @@ s32 PS4_SYSV_ABI sceNpSignalingInitialize(s64 memorySize, s32 threadPriority, s3
         return ORBIS_NP_SIGNALING_ERROR_ALREADY_INITIALIZED;
     }
     InitSignalingMutex();
-    SignalingMutexGuard lock;
+    std::optional<SignalingMutexGuard> lock;
+    lock.emplace();
 
     u32 app_type_4 = 0;
     const s32 app_type_rc = Helpers::CheckInitializeAppType(&app_type_4);
@@ -68,6 +70,9 @@ s32 PS4_SYSV_ABI sceNpSignalingInitialize(s64 memorySize, s32 threadPriority, s3
     }
 
     g_initialized = true;
+    // Dispatch takes the signaling mutex too. Never join it during startup
+    // rollback while this thread owns that mutex.
+    lock.reset();
 
     const s32 rc = Helpers::StartMainRuntime(threadPriority, cpuAffinityMask, threadStackSize);
     if (rc < 0) {
@@ -78,6 +83,7 @@ s32 PS4_SYSV_ABI sceNpSignalingInitialize(s64 memorySize, s32 threadPriority, s3
 
     const s32 echo_rc = Helpers::StartEchoRuntime(threadPriority, cpuAffinityMask);
     if (echo_rc < 0) {
+        LOG_ERROR(Lib_NpSignaling, "Echo runtime initialization failed: {:#x}", echo_rc);
         g_initialized = false;
         Helpers::ShutdownRuntime();
         Helpers::ShutdownSignalingHeap();
@@ -88,6 +94,7 @@ s32 PS4_SYSV_ABI sceNpSignalingInitialize(s64 memorySize, s32 threadPriority, s3
         &g_callout_ctx, "SceNpSignalingCallout", static_cast<u64>(threadStackSize), threadPriority,
         static_cast<u64>(cpuAffinityMask));
     if (callout_rc < 0) {
+        LOG_ERROR(Lib_NpSignaling, "Callout initialization failed: {:#x}", callout_rc);
         g_initialized = false;
         Helpers::ShutdownRuntime();
         Helpers::ShutdownSignalingHeap();

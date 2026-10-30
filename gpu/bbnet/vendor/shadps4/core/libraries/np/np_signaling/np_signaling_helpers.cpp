@@ -213,19 +213,14 @@ s32 StartEchoRuntime(s32 thread_priority, s32 cpu_affinity_mask) {
     LOG_DEBUG(Lib_NpSignaling, "thread_priority={} cpu_affinity_mask={}", thread_priority,
               cpu_affinity_mask);
 
-    auto sock = Libraries::Net::sceNetSocket("SceNpSignalingIoctl", 2, 6, 0);
-    if (sock < 0) {
-        return sock;
-    }
-
-    const s32 ioctl_rc = ORBIS_OK; // bbport: BBSC's sceNetIoctl is a stub that returns OK
-    Libraries::Net::sceNetSocketClose(sock);
-
+    // bbport does not implement the kernel signaling ioctl. Its old temporary
+    // type-6 socket can fail even though no socket/operation is needed here.
+    // The live signaling transports are owned by StartMainRuntime.
     g_echo_probe_word2 = 0;
     g_echo_probe_word3 = 0;
     g_echo_thread_handle = static_cast<u64>(-1);
     g_echo_thread_status = -1;
-    return ioctl_rc;
+    return ORBIS_OK;
 }
 
 void ShutdownRuntime() {
