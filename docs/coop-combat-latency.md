@@ -34,7 +34,14 @@
 
 `tests/test_coop_latency_diagnostics.py`: реальные LatencySamples и Windows log
 sink, сопоставление payload, задержка D на 2 с, bounded overflow/budget/reset — PASS.
-Для проверки UDP доставки используется реальный Transport после сборки.
+`tests/test_p2p_latency_transport.cpp` связан с реальным libbbnet: 540 доставок UDP
+в обе стороны, настоящий FramingCodec/очереди/readiness/peek, переход через flush
+диагностики — PASS. Максимальный локальный round trip 34181 мкс; в лог попали
+1593 T/R/D записи, максимальное измеренное ожидание в очереди 18690 мкс. Это
+loopback-проверка диагностики, а не измерение задержки удара на двух игровых ПК.
+
+Порт `6672649`, build.sh exit=0, bb-probe SHA256
+`AEF3575C0B1C55CECB3779B8F156B091AAE4437BC8C3707ABDD13A91CF56D6DB`.
 
 Следующий прогон: прямой вход в чашу; хост стоит рядом и не атакует, клиент наносит
 три раздельных удара с интервалом ~5 с, затем добивает другого моба; повторить
