@@ -12,16 +12,20 @@ Sources checked for ideas (last on 12 October 2026): shadPS4 (our renderer match
 
 ## Main work, in order
 
-1. **Seamless co-op on our own servers** (the main focus since 14 October 2026). The public
-   shadPS4 server (srv.shadps4.net) signs the port out since its 14 October update, whatever
-   version the port reports, and catching up with shadPS4 would not change that: a fork's build
-   still reports itself as a fork. So playing together goes through servers the players run.
-   1.9.1 runs [BBSC](https://github.com/Classmg22/BBSC) 0.0.1 (CLS_AMG; Wozzardman's
-   shadnet-p2p) from Settings > Co-op, hosted on one player's PC over Tailscale. Next: a two-PC
-   test (joining, deaths, lamps, area changes, a boss, leaving), fix what breaks, then make
-   hosting simpler (same-network play without Tailscale, clearer invite and error messages).
-   Keep an eye on deadinside28 [#130](https://github.com/deadinside28/bloodborne_pc/pull/130)
-   for ideas. Ask the srv.shadps4.net admins to allow `shadPS4 Jgamrot/` for ordinary online.
+1. **Seamless co-op on our own servers** — status reviewed 30 October 2026.
+   Our Windows launcher/port uses BBSC T17 (`addfd08`) and the signaling fix
+   `f4f0028`, deployed to PC and laptop; VPS and TCP relay already exist.
+   The user reports nearly all critical gameplay bugs fixed. The next main feature
+   is **Chalice Dungeons**: dungeon identity, shared entry/floor transitions,
+   bosses/wipes and isolation of the guest's own dungeon progression.
+   Remaining release checks include three players, NPC rewards/own Dream with
+   different progression, DLC and save recovery. GPU TDR also reproduced Offline
+   without BBSC; the first Dream trip after reinstalling our own build succeeded,
+   but neither cause nor a durable fix is established. Use our own launcher build;
+   do not replace it with upstream. Current co-op plan and evidence:
+   [BBSC BACKLOG](../../BBSC/docs/BACKLOG.md),
+   [phases / chalices](../../BBSC/docs/PHASES.md),
+   [handoff](../../BBSC/docs/HANDOFF.md).
 2. **Boss Rematches** (Bloodborne Enhanced features, independently implemented). A Cleric
    Beast rematch was played through on a copied save (14 October 2026); 1.9.1 extends it to all
    19 bosses with a lamp of their own, as an experimental launcher toggle (off;
