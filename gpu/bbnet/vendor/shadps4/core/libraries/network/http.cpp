@@ -1817,7 +1817,14 @@ int PS4_SYSV_ABI sceHttpSendRequest(int reqId, const void* postData, u64 size) {
                 return HeaderNameMatches(header.first, "X-ShadPS4-Bloodborne-Seamless");
             });
         const char* no_fast_sign = std::getenv("SHADPS4_BBSC_NO_FAST_SIGN");
-        if (online && worker_errno == 0 && bbsc_summon_create &&
+        // T20 mods configure the game's real sign/search timers. Do not hold its
+        // response for 15 seconds: that serializes other native matchmaking work.
+        const bool native_summon_polling = std::any_of(
+            plan.headers.begin(), plan.headers.end(), [](const auto& header) {
+                return HeaderNameMatches(header.first, "X-BBSC-Native-Summon-Polling") &&
+                       header.second == "1";
+            });
+        if (online && worker_errno == 0 && bbsc_summon_create && !native_summon_polling &&
             (no_fast_sign == nullptr || *no_fast_sign == 0 || *no_fast_sign == '0')) {
             const auto delivered = [](const HttpResponse& res) {
                 const std::string_view body{reinterpret_cast<const char*>(res.body.data()),
