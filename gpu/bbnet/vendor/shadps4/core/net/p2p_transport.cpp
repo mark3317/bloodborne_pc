@@ -3,6 +3,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <cstdlib>
+#include "common/logging/log.h"
 #include <tuple>
 
 #include "core/net/p2p_relay.h"
@@ -151,7 +153,29 @@ Transport::Transport(int family, std::unique_ptr<Codec> codec, const TransportCo
       signaling_(std::max<size_t>(config.signaling_channels, 1)),
       iss_state_(static_cast<u64>(Clock::now().time_since_epoch().count()) ^
                  reinterpret_cast<uintptr_t>(this)),
-      receive_buffer_(65536) {}
+      receive_buffer_(65536) {
+    const char* coop = std::getenv("BB_COOP");
+    diagnostics_ = coop && std::strcmp(coop, "1") == 0;
+}
+
+Transport::DiagnosticCounters& Transport::Diagnostic(u16 vport) {
+    if (diagnostic_ports_.size() >= 32 && !diagnostic_ports_.contains(vport)) vport = 0;
+    return diagnostic_ports_[vport];
+}
+
+void Transport::ReportDiagnostics(Clock::time_point now) {
+    if (!diagnostics_ || now - diagnostic_at_ < std::chrono::seconds(5)) return;
+    diagnostic_at_ = now;
+    for (const auto& [vport, c] : diagnostic_ports_) {
+        const auto it = datagram_bindings_.find(vport);
+        const size_t queued_bytes = it == datagram_bindings_.end() ? 0 : it->second->bytes;
+        LOG_WARNING(Lib_Net, "P2P diagnostic: udp={} vport={} cumulative tx={} tx_error={} queued={} read={} "
+                    "wrong_peer={} full={} unbound={} invalid={} digest={} no_key={} auth={} backlog={} "
+                    "direct_rx={} relay_rx={}", bound_port_, vport, c.tx, c.tx_error, c.queued, c.read,
+                    c.wrong_peer, c.full, c.unbound, c.invalid, c.digest, c.no_key, c.authentication,
+                    queued_bytes, diagnostic_direct_rx_, diagnostic_relay_rx_);
+    }
+}
 
 std::shared_ptr<Transport> Transport::Create(int family, const Endpoint& bind_address,
                                              std::unique_ptr<Codec> codec,
@@ -278,15 +302,18 @@ void Transport::ThreadMain() {
                     u32 peer_addr = 0;
                     u16 peer_port = 0;
                     if (Relay::Receive(data, &frame, &peer_addr, &peer_port)) {
+                        if (diagnostics_) ++diagnostic_relay_rx_;
                         HandlePacket(frame, FromIPv4(peer_addr, peer_port), now);
                     }
                     continue;
                 }
+                if (diagnostics_) ++diagnostic_direct_rx_;
                 Relay::NoteDirectReceive(from_addr, from_port);
             }
             HandlePacket(data, from_endpoint, now);
         }
         RunTimers(now);
+        ReportDiagnostics(now);
     }
 }
 
@@ -417,6 +444,13 @@ void Transport::HandlePacket(std::span<const u8> packet, const Endpoint& from,
         break;
     }
     case Codec::Kind::Invalid:
+        if (diagnostics_) {
+            auto& c = Diagnostic(decoded.dst_vport);
+            ++c.invalid;
+            if (std::strcmp(decoded.rejection, "digest") == 0) ++c.digest;
+            if (std::strcmp(decoded.rejection, "no_key") == 0) ++c.no_key;
+            if (std::strcmp(decoded.rejection, "authentication") == 0) ++c.authentication;
+        }
         break;
     }
 }
@@ -424,16 +458,20 @@ void Transport::HandlePacket(std::span<const u8> packet, const Endpoint& from,
 void Transport::HandleDatagram(Codec::Decoded& decoded, const Endpoint& from) {
     const auto it = datagram_bindings_.find(decoded.dst_vport);
     if (it == datagram_bindings_.end()) {
+        if (diagnostics_) ++Diagnostic(decoded.dst_vport).unbound;
         return;
     }
     DatagramBinding& binding = *it->second;
     if (binding.peer &&
         !(binding.peer->first == from && binding.peer->second == decoded.src_vport)) {
+        if (diagnostics_) ++Diagnostic(decoded.dst_vport).wrong_peer;
         return; // not from the connected peer
     }
     if (binding.bytes + decoded.payload.size() > config_.datagram_queue_bytes) {
+        if (diagnostics_) ++Diagnostic(decoded.dst_vport).full;
         return; // queue full, drop like UDP
     }
+    if (diagnostics_) ++Diagnostic(decoded.dst_vport).queued;
     binding.bytes += decoded.payload.size();
     binding.queue.push_back({std::move(decoded.payload), from, decoded.src_vport});
     binding.readiness->readable.Set(true);
@@ -606,6 +644,11 @@ IoResult DatagramSocket::SendTo(std::span<const u8> data, const Endpoint* to, u1
     const auto packet =
         transport_->codec_->EncodeDatagram(binding_->vport, to_vport, data, *to, protection);
     const Error e = transport_->SendPacket(packet, *to);
+    if (transport_->diagnostics_) {
+        auto& c = transport_->Diagnostic(binding_->vport);
+        ++c.tx;
+        if (e != Error::Ok) ++c.tx_error;
+    }
     if (e == Error::WouldBlock || e == Error::NoBufs) {
         // PS4 drops instead of returning ENOBUFS
         return {data.size(), Error::Ok};
@@ -628,6 +671,7 @@ IoResult DatagramSocket::RecvFrom(std::span<u8> out, bool peek, Endpoint* from, 
         *from_vport = packet.src_vport;
     }
     if (!peek) {
+        if (transport_->diagnostics_) ++transport_->Diagnostic(binding_->vport).read;
         binding_->bytes -= packet.payload.size();
         binding_->queue.pop_front();
         if (binding_->queue.empty()) {

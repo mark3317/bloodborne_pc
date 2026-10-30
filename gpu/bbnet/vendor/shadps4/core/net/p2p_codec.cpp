@@ -134,6 +134,8 @@ Codec::Decoded FramingCodec::Decode(std::span<const u8> packet, const Endpoint& 
         dst_vport = static_cast<u16>((packet[4] << 8) | packet[5]);
     }
 
+    out.src_vport = src_vport;
+    out.dst_vport = dst_vport;
     std::optional<CommunicationId> communication_id;
     if (flags & FlagDigest) {
         if (packet.size() < offset + 4) {
@@ -149,6 +151,7 @@ Codec::Decoded FramingCodec::Decode(std::span<const u8> packet, const Endpoint& 
     if (!signaling) {
         if (const auto expected = keyring->GetCommunicationId();
             expected && communication_id != expected) {
+            out.rejection = "digest";
             return out;
         }
     }
@@ -157,8 +160,13 @@ Codec::Decoded FramingCodec::Decode(std::span<const u8> packet, const Endpoint& 
     const auto body = packet.subspan(offset);
     if (mode != 0) {
         const auto key = keyring->Find(from);
-        if (!key || !UnprotectPayload(body, (mode & 1) != 0, (mode & 2) != 0, *key, out.payload)) {
-            return out; // no key or bad signature
+        if (!key) {
+            out.rejection = "no_key";
+            return out;
+        }
+        if (!UnprotectPayload(body, (mode & 1) != 0, (mode & 2) != 0, *key, out.payload)) {
+            out.rejection = "authentication";
+            return out;
         }
     } else {
         out.payload.assign(body.begin(), body.end());

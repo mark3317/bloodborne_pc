@@ -6,6 +6,10 @@
 #include <ctime>
 #include <mutex>
 #include <string>
+#include <filesystem>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include "common/logging/log.h"
 
 namespace Common::Log {
@@ -25,7 +29,10 @@ bool ShouldLogClass(std::string_view log_class, Level level) {
     if (level >= threshold()) return true;
     static const std::string classes = [] {
         const char* v = std::getenv("BB_GPU_LOG_CLASSES");
-        return std::string(v ? v : "");
+        if (v) return std::string(v);
+        const char* coop = std::getenv("BB_COOP");
+        return std::string(coop && std::strcmp(coop, "1") == 0
+            ? "Lib.NpSignaling,Lib.NpMatching2" : "");
     }();
     if (classes.empty() || level < Level::info) return false;
     size_t pos = 0;
@@ -43,7 +50,27 @@ void Write(std::string_view log_class, Level level, const char* file, int line, 
     // BB_GPU_LOG_FILE=<path>: the log also goes there (the launcher does not always keep stderr).
     static std::FILE* log_file = [] {
         const char* v = std::getenv("BB_GPU_LOG_FILE");
-        return v && *v ? std::fopen(v, "a") : nullptr;
+        if (v && *v) return std::fopen(v, "a");
+#ifdef _WIN32
+        const char* coop = std::getenv("BB_COOP");
+        if (coop && std::strcmp(coop, "1") == 0) {
+            const wchar_t* user = _wgetenv(L"BB_USER_DIR");
+            if (user && *user) {
+                std::error_code ec;
+                const auto dir = std::filesystem::path(user) / L"log";
+                std::filesystem::create_directories(dir, ec);
+                if (!ec) {
+                    SYSTEMTIME t{}; GetLocalTime(&t);
+                    wchar_t name[96]{};
+                    swprintf_s(name, L"bbnet-%04u%02u%02u-%02u%02u%02u-%lu.log",
+                               t.wYear, t.wMonth, t.wDay, t.wHour, t.wMinute, t.wSecond,
+                               GetCurrentProcessId());
+                    return _wfopen((dir / name).c_str(), L"a");
+                }
+            }
+        }
+#endif
+        return static_cast<std::FILE*>(nullptr);
     }();
     static const char* names[] = {"Trace", "Debug", "Info", "Warning", "Error", "Critical"};
     const char* base = std::strrchr(file, '/');

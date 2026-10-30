@@ -47,6 +47,7 @@ public:
         u16 src_vport = 0; // datagrams only
         u16 dst_vport = 0;
         std::vector<u8> payload;
+        const char* rejection = "framing"; // diagnostics only, never changes acceptance
     };
 
     virtual ~Codec() = default;
@@ -230,6 +231,17 @@ private:
     Error SendPacket(std::span<const u8> packet, const Endpoint& to);
     u16 AllocateVport(bool stream);
     u32 NewIss();
+
+    struct DiagnosticCounters {
+        u64 tx{}, tx_error{}, queued{}, read{}, wrong_peer{}, full{}, unbound{}, invalid{};
+        u64 digest{}, no_key{}, authentication{};
+    };
+    bool diagnostics_ = false;
+    std::map<u16, DiagnosticCounters> diagnostic_ports_;
+    u64 diagnostic_direct_rx_{}, diagnostic_relay_rx_{};
+    Clock::time_point diagnostic_at_{};
+    DiagnosticCounters& Diagnostic(u16 vport);
+    void ReportDiagnostics(Clock::time_point now);
 
     const int family_;
     std::unique_ptr<Codec> codec_;
