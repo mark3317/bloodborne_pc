@@ -13,10 +13,12 @@ Sources checked for ideas (last on 12 October 2026): shadPS4 (our renderer match
 ## Main work, in order
 
 1. **Seamless co-op on our own servers** — status reviewed 30 October 2026.
-   Our Windows launcher/port uses BBSC T17 (`addfd08`) and the signaling fix
+   Our Windows launcher/port uses BBSC T18 (`7e30600`) and the signaling fix
    `f4f0028`, deployed to PC and laptop; VPS and TCP relay already exist.
    The user reports nearly all critical gameplay bugs fixed. The next main feature
-   is **Chalice Dungeons**: dungeon identity, shared entry/floor transitions,
+   is **Chalice Dungeons**: scoped identity/flags/loot are now implemented for a
+   first native-summon test; automatic host dungeon mounting and exact floor identity
+   remain. The target includes shared entry/floor transitions,
    bosses/wipes and isolation of the guest's own dungeon progression.
    Remaining release checks include three players, NPC rewards/own Dream with
    different progression, DLC and save recovery. GPU TDR also reproduced Offline
