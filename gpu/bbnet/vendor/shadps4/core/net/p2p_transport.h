@@ -12,8 +12,10 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <string>
 
 #include "core/net/p2p_tcp.h"
+#include "core/net/p2p_latency.h"
 
 namespace Core::Net::P2P {
 
@@ -240,8 +242,9 @@ private:
     std::map<u16, DiagnosticCounters> diagnostic_ports_;
     u64 diagnostic_direct_rx_{}, diagnostic_relay_rx_{};
     Clock::time_point diagnostic_at_{};
+    LatencySamples latency_samples_;
     DiagnosticCounters& Diagnostic(u16 vport);
-    void ReportDiagnostics(Clock::time_point now);
+    std::string CollectDiagnostics(Clock::time_point now);
 
     const int family_;
     std::unique_ptr<Codec> codec_;

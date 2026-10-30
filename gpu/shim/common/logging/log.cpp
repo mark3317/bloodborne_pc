@@ -13,6 +13,26 @@
 #include "common/logging/log.h"
 
 namespace Common::Log {
+#ifdef _WIN32
+// Read the process environment, including values changed through Win32 after CRT startup.
+static std::wstring ProcessEnv(const wchar_t* name) {
+    const DWORD size = GetEnvironmentVariableW(name, nullptr, 0);
+    if (!size || size > 32768) return {};
+    std::wstring value(size, L'\0');
+    const DWORD length = GetEnvironmentVariableW(name, value.data(), size);
+    if (!length || length >= size) return {};
+    value.resize(length);
+    return value;
+}
+#endif
+bool CoopDiagnosticsEnabled() {
+#ifdef _WIN32
+    return ProcessEnv(L"BB_COOP") == L"1";
+#else
+    const char* coop = std::getenv("BB_COOP");
+    return coop && std::strcmp(coop, "1") == 0;
+#endif
+}
 static Level threshold() {
     static const Level level = [] {
         const char* v = std::getenv("BB_GPU_LOG");
@@ -52,10 +72,10 @@ void Write(std::string_view log_class, Level level, const char* file, int line, 
         const char* v = std::getenv("BB_GPU_LOG_FILE");
         if (v && *v) return std::fopen(v, "a");
 #ifdef _WIN32
-        const char* coop = std::getenv("BB_COOP");
-        if (coop && std::strcmp(coop, "1") == 0) {
-            const wchar_t* user = _wgetenv(L"BB_USER_DIR");
-            if (user && *user) {
+        if (CoopDiagnosticsEnabled()) {
+            auto user = ProcessEnv(L"BB_USER_DIR");
+            if (user.empty()) user = ProcessEnv(L"BB_GPU_USER_DIR");
+            if (!user.empty()) {
                 std::error_code ec;
                 const auto dir = std::filesystem::path(user) / L"log";
                 std::filesystem::create_directories(dir, ec);

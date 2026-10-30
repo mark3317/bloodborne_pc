@@ -22,6 +22,7 @@ struct DatagramBinding {
         std::vector<u8> payload;
         Endpoint from;
         u16 src_vport;
+        Clock::time_point queued_at;
     };
     u16 vport = 0;
     std::shared_ptr<Readiness> readiness;
@@ -154,8 +155,13 @@ Transport::Transport(int family, std::unique_ptr<Codec> codec, const TransportCo
       iss_state_(static_cast<u64>(Clock::now().time_since_epoch().count()) ^
                  reinterpret_cast<uintptr_t>(this)),
       receive_buffer_(65536) {
-    const char* coop = std::getenv("BB_COOP");
-    diagnostics_ = coop && std::strcmp(coop, "1") == 0;
+    diagnostics_ = Common::Log::CoopDiagnosticsEnabled();
+    LOG_WARNING(Lib_Net, "P2P transport diagnostics active={}", diagnostics_);
+}
+
+static s64 DiagnosticWallUs() {
+    return std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::system_clock::now().time_since_epoch()).count();
 }
 
 Transport::DiagnosticCounters& Transport::Diagnostic(u16 vport) {
@@ -163,18 +169,32 @@ Transport::DiagnosticCounters& Transport::Diagnostic(u16 vport) {
     return diagnostic_ports_[vport];
 }
 
-void Transport::ReportDiagnostics(Clock::time_point now) {
-    if (!diagnostics_ || now - diagnostic_at_ < std::chrono::seconds(5)) return;
+std::string Transport::CollectDiagnostics(Clock::time_point now) {
+    if (!diagnostics_ || now - diagnostic_at_ < std::chrono::seconds(5)) return {};
     diagnostic_at_ = now;
+    std::string report;
     for (const auto& [vport, c] : diagnostic_ports_) {
         const auto it = datagram_bindings_.find(vport);
         const size_t queued_bytes = it == datagram_bindings_.end() ? 0 : it->second->bytes;
-        LOG_WARNING(Lib_Net, "P2P diagnostic: udp={} vport={} cumulative tx={} tx_error={} queued={} read={} "
+        report += fmt::format("P2P diagnostic: udp={} vport={} cumulative tx={} tx_error={} queued={} read={} "
                     "wrong_peer={} full={} unbound={} invalid={} digest={} no_key={} auth={} backlog={} "
-                    "direct_rx={} relay_rx={}", bound_port_, vport, c.tx, c.tx_error, c.queued, c.read,
+                    "direct_rx={} relay_rx={}\n", bound_port_, vport, c.tx, c.tx_error, c.queued, c.read,
                     c.wrong_peer, c.full, c.unbound, c.invalid, c.digest, c.no_key, c.authentication,
                     queued_bytes, diagnostic_direct_rx_, diagnostic_relay_rx_);
     }
+    for (const auto& [key, connection] : connections_) {
+        report += fmt::format("P2P stream: local={} peer={} state={} retransmissions={} unread={}\n",
+            key.local_vport, key.peer_vport, ToString(connection->tcp->State()),
+            connection->tcp->Retransmissions(), connection->tcp->BytesToRead());
+    }
+    for (size_t i = 0; i < latency_samples_.count; ++i) {
+        const auto& s = latency_samples_.samples[i];
+        report += fmt::format("P2P sample: kind={} local={} peer={} bytes={} hash={:016x} wall_us={} queue_us={}\n",
+            s.kind, s.local, s.peer, s.size, s.hash, s.wall_us, s.queue_us);
+    }
+    if (latency_samples_.omitted) report += fmt::format("P2P samples omitted={}\n", latency_samples_.omitted);
+    latency_samples_.Clear();
+    return report;
 }
 
 std::shared_ptr<Transport> Transport::Create(int family, const Endpoint& bind_address,
@@ -278,7 +298,7 @@ void Transport::ThreadMain() {
             kick_.Drain();
         }
 
-        std::scoped_lock lock{mutex_};
+        std::unique_lock lock{mutex_};
         sleeping_until_ = Clock::time_point::min();
         const auto now = Clock::now();
         for (int i = 0; i < 1024; ++i) { // don't starve timers
@@ -313,7 +333,9 @@ void Transport::ThreadMain() {
             HandlePacket(data, from_endpoint, now);
         }
         RunTimers(now);
-        ReportDiagnostics(now);
+        auto report = CollectDiagnostics(now);
+        lock.unlock(); // logging must never hold up the game's SendTo/RecvFrom on disk I/O
+        if (!report.empty()) LOG_WARNING(Lib_Net, "{}", report);
     }
 }
 
@@ -473,7 +495,10 @@ void Transport::HandleDatagram(Codec::Decoded& decoded, const Endpoint& from) {
     }
     if (diagnostics_) ++Diagnostic(decoded.dst_vport).queued;
     binding.bytes += decoded.payload.size();
-    binding.queue.push_back({std::move(decoded.payload), from, decoded.src_vport});
+    const auto queued_at = diagnostics_ ? Clock::now() : Clock::time_point{};
+    if (diagnostics_) latency_samples_.Record('R', decoded.dst_vport, decoded.src_vport,
+                                              decoded.payload, DiagnosticWallUs());
+    binding.queue.push_back({std::move(decoded.payload), from, decoded.src_vport, queued_at});
     binding.readiness->readable.Set(true);
 }
 
@@ -641,6 +666,8 @@ IoResult DatagramSocket::SendTo(std::span<const u8> data, const Endpoint* to, u1
     }
     const Protection protection{protection_.crypto || extra.crypto,
                                 protection_.signature || extra.signature};
+    if (transport_->diagnostics_) transport_->latency_samples_.Record(
+        'T', binding_->vport, to_vport, data, DiagnosticWallUs());
     const auto packet =
         transport_->codec_->EncodeDatagram(binding_->vport, to_vport, data, *to, protection);
     const Error e = transport_->SendPacket(packet, *to);
@@ -671,7 +698,13 @@ IoResult DatagramSocket::RecvFrom(std::span<u8> out, bool peek, Endpoint* from, 
         *from_vport = packet.src_vport;
     }
     if (!peek) {
-        if (transport_->diagnostics_) ++transport_->Diagnostic(binding_->vport).read;
+        if (transport_->diagnostics_) {
+            ++transport_->Diagnostic(binding_->vport).read;
+            const s64 queue_us = std::chrono::duration_cast<std::chrono::microseconds>(
+                Clock::now() - packet.queued_at).count();
+            transport_->latency_samples_.Record('D', binding_->vport, packet.src_vport,
+                                                packet.payload, DiagnosticWallUs(), queue_us);
+        }
         binding_->bytes -= packet.payload.size();
         binding_->queue.pop_front();
         if (binding_->queue.empty()) {
