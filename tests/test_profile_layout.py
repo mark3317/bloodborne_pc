@@ -78,7 +78,7 @@ class ProfileLayoutTests(unittest.TestCase):
         self.assertEqual(Path(env['BB_DATA_DIR']), core.CONFIG_DIR)
         self.assertEqual(Path(env['BB_CONFIG']), core.CONFIG_DIR / 'bbport.ini')
         self.assertEqual(Path(env['BB_USER_DIR']), core.CONFIG_DIR / 'user')
-        self.assertEqual(Path(env['BB_MODS_DIR']), core.CONFIG_DIR / 'mods')
+        self.assertEqual(Path(env['BB_MODS_DIR']), core.PORT_DIR / 'mods')
         self.assertEqual(core.INI_DEFAULTS['skip_intro'], '1')
         self.assertEqual(core.INI_DEFAULTS['upscaler'], 'dlss')
         self.assertEqual(core.INI_DEFAULTS['preset'], '2')

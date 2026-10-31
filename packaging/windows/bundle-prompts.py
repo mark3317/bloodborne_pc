@@ -22,5 +22,5 @@ for choice in ('Xbox', 'Keyboard'):
         install(choice, game, cache, ROOT / 'bundled-mods/prompts')
     shutil.copytree(cache / name, destination / name, dirs_exist_ok=True)
 files = {p.relative_to(destination).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
-         for p in sorted(destination.rglob('*')) if p.is_file()}
+         for p in sorted(destination.rglob('*')) if p.is_file() and p.name != 'manifest.json'}
 (destination / 'manifest.json').write_text(json.dumps({'files': files}, indent=2), encoding='utf-8')

@@ -8,6 +8,7 @@ Read README.md (English) or README.ru.md (Russian) for setup and known limitatio
 Updates: https://github.com/mark3317/bloodborne_pc/releases
 
 BBSC client and hosting binaries run directly from coop/client and coop/server.
-All writable data: %APPDATA%\bbport-launcher (settings, graphics, mods, saves, BBSC journals).
+Settings, graphics, mod selection, saves and BBSC journals: %APPDATA%\bbport-launcher.
+Mod files: mods inside the launcher folder.
 Default saves/cache: %APPDATA%\bbport-launcher\user. No separate BBSC preparation.
 Ready-made Xbox/Keyboard mods are in the launcher mods folder; switching requires no extraction.
