@@ -262,6 +262,12 @@ endif()
 # linked here, where CMake knows its dependencies (build.sh builds them with ninja).
 if (WIN32)
     enable_language(RC)
+    # RC compilers do not reliably report referenced icon files to Ninja.
+    set_source_files_properties(
+        ../packaging/windows/bb-probe.rc
+        ../packaging/windows/bb-gpu-capabilities.rc
+        ../packaging/windows/play.rc
+        PROPERTIES OBJECT_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/../launcher/bloodborne.ico")
     file(GLOB BB_RUNTIME CONFIGURE_DEPENDS ../src/runtime*.c)
     file(GLOB BB_ATRAC9 CONFIGURE_DEPENDS ../third_party/LibAtrac9/C/src/*.c)
     add_library(atrac9 STATIC ${BB_ATRAC9})
