@@ -9,6 +9,24 @@ The classic Tk launcher keeps its own table (bbport_i18n.py).
 import re
 
 RU = {
+    'Prepare bundled BBSC': 'Подготовить встроенный BBSC',
+    'Preparing bundled co-op…': 'Подготовка встроенного коопа…',
+    'Co-op gameplay': 'Настройки кооператива',
+    "Own Hunter's Dream": 'Собственный Сон охотника',
+    'No guest HP cut': 'Без снижения здоровья гостя',
+    'Bloodstain on death': 'Пятно крови после смерти',
+    'Free Beckoning Bell': 'Колокол без расхода озарения',
+    'Enemy scaling': 'Масштабирование врагов',
+    'Scale NPC hunters': 'Масштабировать NPC-охотников',
+    'Enemy HP per guest (%)': 'Здоровье врагов за гостя (%)',
+    'Boss HP per guest (%)': 'Здоровье боссов за гостя (%)',
+    'Enemy damage per guest (%)': 'Урон врагов за гостя (%)',
+    'Enemy stagger resistance per guest (%)': 'Устойчивость врагов за гостя (%)',
+    'Boss stagger resistance per guest (%)': 'Устойчивость боссов за гостя (%)',
+    'Shared progress': 'Общий прогресс',
+    'Research logs': 'Подробные диагностические логи',
+    'Bundled BBSC is ready to prepare. Play co-op installs it automatically.': 'BBSC включён в комплект. При запуске коопа он будет подготовлен автоматически.',
+
     # --- Home, rail, splash -------------------------------------------------------------------
     'Default location': 'Папка по умолчанию',
     'Browse': 'Обзор',

@@ -158,17 +158,15 @@ FIELDS = {
             hint='Opens a port on your router for summons. Turn it off on Tailscale or another VPN.'),
     ],
     'Co-op': [
+        *[row('bbsc_' + item['id'], item['name'],
+              'toggle' if item['type'] == 'bool' else 'text', hint=item['description'])
+          for item in core.COOP_SETTINGS],
         row('coop_name', 'Co-op name', hint='Your name in co-op, 3-16 letters, numbers, - or _.'),
         row('coop_password', 'Co-op password', 'password',
             hint="For your co-op account on the host's server. Use one you use nowhere else."),
         row('coop_invite', 'Host invite code',
             hint='Paste the BBCOOP- code your host sent you. Leave empty when you host, or to use '
                  "this launcher's own co-op server (coop-server.json)."),
-        row('coop_emulator', 'Co-op game program', 'choice',
-            [('port', ("This launcher's (all its settings; BBSC relay built in)",)),
-             ('bbsc', ("BBSC's own BBport build (BBport 1.7.2 features only)",))],
-            hint="Which bb-probe.exe co-op runs. This launcher's has frame generation, the mouse "
-                 "settings and the rest; BBSC's is the one BBSC tests with."),
     ],
     'Mods': [
         row('mods_enabled', 'Enable mods', 'toggle'),
@@ -177,10 +175,6 @@ FIELDS = {
     ],
     'Enhancements': [
         *[row(key, title[0], 'toggle') for key, title, _ in core.ENHANCEMENTS],
-    ],
-    'Atlas': [
-        *[row(key, title[0], 'toggle') for key, title, _ in core.ATLAS],
-        row('atlas_npc_mode', 'NPC markers', 'choice', core.ATLAS_NPC_MODES),
     ],
     # Launch behaviour (launchDirectly, close_on_play, shortcuts) lives on Home; the update
     # toggle has its own row with "Check now" in Main.qml.
@@ -225,14 +219,14 @@ SETTINGS_SECTIONS = {
         ("The Hunter's Dream", ['online_upnp']),
     ],
     'Co-op': [
-        ('Seamless co-op', ['coop_name', 'coop_password', 'coop_emulator']),
+        ('Seamless co-op', ['coop_name', 'coop_password']),
+        ('Co-op gameplay', ['bbsc_' + item['id'] for item in core.COOP_SETTINGS]),
         ('Host a session', []),
         ('Join a host', ['coop_invite']),
     ],
     'Mods & Patches': [
         ('Installed mods', ['mods_enabled', 'mods_dir']),
         ('Built-in enhancements', [key for key, _, _ in core.ENHANCEMENTS]),
-        ("Hunter's Atlas (map)", [key for key, _, _ in core.ATLAS] + ['atlas_npc_mode']),
         ('External patches', ['patches_dir']),
         ('Gameplay patches', [key for key, _, _ in core.CHEATS] + [key for key, _, _ in core.TWEAKS]),
     ],
@@ -793,6 +787,13 @@ class LauncherBackend(QObject):
             if key in ('upscaler', 'preset', 'output_res'):
                 self._settings_revision += 1  # the preset's hint names the new scene size
         else:
+            item = next((x for x in core.COOP_SETTINGS if 'bbsc_' + x['id'] == key), None)
+            if item and item['type'] == 'int':
+                try:
+                    value = max(item['min'], min(item['max'], int(value)))
+                except (ValueError, TypeError):
+                    self._set_notice('Enter a whole number within the setting range.')
+                    return
             self.app[key] = value
         self._write()
 
@@ -1074,13 +1075,10 @@ class LauncherBackend(QObject):
         xbox = [n for n in names if n != core.KEYBOARD_PROMPTS]
         if (choice == 'Xbox' and not xbox) or (choice == 'Keyboard' and core.KEYBOARD_PROMPTS not in names):
             _, page, title, creator = core.PROMPT_PACKS[choice]
-            source = self._choose_prompt_download(choice)
-            if not source:
-                self._set_notice(f'{choice} prompts are a separate download: get {title} by {creator} from '
-                                 f'{page}, then choose {choice} again and pick the downloaded file.')
-                return
             try:
-                core.install_prompt_pack(choice, source, self._mods_dir())
+                from bundled_prompts import install
+                install(choice, self.app.get('game_dir', ''), self._mods_dir(),
+                        core.PORT_DIR / 'bundled-mods' / 'prompts')
             except (OSError, ValueError) as error:
                 self._set_notice(str(error))
                 return
@@ -1104,48 +1102,6 @@ class LauncherBackend(QObject):
         self._set_notice(f'{choice} button prompts selected. Restart the game to apply them.'
                          + (' Keys now match the prompt images (E interact, Left Shift dodge, Q item, F transform).'
                             if choice == 'Keyboard' else ''))
-
-    @Property(str, notify=changed)
-    @translated
-    def atlasStatus(self):
-        if self._atlas_progress:
-            return self._atlas_progress
-        sys.path.insert(0, str(core.PORT_DIR / 'scripts'))
-        import atlas
-        return ('Maps ready.' if atlas.ready(core.ATLAS_DIR) else
-                'Maps not prepared yet: Prepare maps makes them from your game (5-15 minutes, once).')
-
-    @Slot()
-    def prepareAtlas(self):
-        """Hunter's Atlas: the maps from the player's own game (scripts/atlas.py prepare)."""
-        if self._atlas_progress:
-            return
-        game = self.app.get('game_dir')
-        self._atlas_progress = 'Preparing maps…'
-        self.changed.emit()
-
-        def work():
-            import json as json_lines
-            sys.path.insert(0, str(core.PORT_DIR / 'scripts'))
-            import atlas
-
-            def progress(line):
-                try:
-                    record = json_lines.loads(line)
-                except ValueError:
-                    return
-                if 'progress' in record:
-                    self._atlas_progress = f"Preparing maps: {record['progress']}% · {record.get('stage', '')}"
-                    self.changed.emit()
-            try:
-                atlas.prepare(game, core.ATLAS_DIR, progress)
-                message = "Hunter's Atlas maps ready. Turn the map on and play: Map is in the game's quick menu."
-            except (OSError, ValueError, RuntimeError) as error:
-                message = f'Preparing the maps failed: {error}'
-            self._atlas_progress = ''
-            self.workerNotice.emit(message)
-            self.changed.emit()
-        threading.Thread(target=work, daemon=True).start()
 
     @Slot()
     def downloadFsr4(self):
@@ -1321,8 +1277,7 @@ class LauncherBackend(QObject):
         if self._coop_status:
             return self._coop_status
         if not coop.installed('client'):
-            return ('Not set up yet: Set up / update BBSC downloads the newest BBSC from its GitHub '
-                    'releases (about 100 MB), or Play co-op does it for you.')
+            return 'Bundled BBSC is ready to prepare. Play co-op installs it automatically.'
         version = coop.installed_version('client') or '?'
         if self._coop_host.running:
             return f'BBSC {version}. Hosting on {self._coop_host.address}. Send your friend the invite code.'
@@ -1380,25 +1335,10 @@ class LauncherBackend(QObject):
 
     def _coop_ensure_packages(self, kinds=('client',)):
         for kind in kinds:
-            if not coop.installed(kind):
-                coop.download(kind, progress=self._coop_progress)
-        coop.apply_override()
+            coop.download(kind, progress=self._coop_progress)
 
     def _coop_probe(self):
         """The bb-probe.exe co-op runs: this launcher's (default) or BBSC's own BBport build."""
-        if self.app.get('coop_emulator', 'port') == 'bbsc':
-            probe = coop.bbsc_emulator()
-            if probe:
-                # DLSS: the game program loads these from its own folder (NVIDIA's files, not in
-                # BBSC's package): this launcher's copies.
-                for dll in ('bbport_dlss.dll', 'nvngx_dlss.dll'):
-                    src, dst = core.PORT_DIR / 'bin' / dll, probe.parent / dll
-                    try:
-                        if src.is_file() and (not dst.is_file() or src.stat().st_size != dst.stat().st_size):
-                            shutil.copy2(src, dst)
-                    except OSError:
-                        pass
-                return probe
         return self._coop_game_exe()
 
     def _coop_game_exe(self):
@@ -1430,23 +1370,8 @@ class LauncherBackend(QObject):
             version = coop.installed_version('client')
             if done:
                 return f'BBSC {version} installed ({"; ".join(done)}).'
-            return f'BBSC {version} is the newest release.'
-        self._coop_run('Checking BBSC releases…', work)
-
-    @Slot()
-    def coopInstallZip(self):
-        """A BBSC-<version>-BBport.zip (or -Server.zip) from disk: test builds, no GitHub."""
-        source, _ = QFileDialog.getOpenFileName(
-            None, 'Choose a BBSC package (BBSC-<version>-BBport.zip)', str(Path.home() / 'Downloads'),
-            'BBSC package (BBSC-*.zip);;ZIP (*.zip)')
-        if not source:
-            return
-        kind = 'server' if '-Server' in Path(source).name else 'client'
-
-        def work():
-            version = coop.install_zip(kind, source, progress=self._coop_progress)
-            return f'BBSC {version or "?"} ({kind}) installed from {Path(source).name}.'
-        self._coop_run('Installing BBSC…', work)
+            return f'Bundled BBSC {version} is ready.'
+        self._coop_run('Preparing bundled co-op…', work)
 
     @Slot()
     def coopStartHosting(self):

@@ -15,7 +15,7 @@ class QuietUpdateCheckTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         cache = Path(self.directory.name) / 'update-check.json'
         for name, value in {'CONFIG_DIR': cache.parent, 'UPDATE_CACHE': cache,
-                            'CURRENT_RELEASE_TAG': 'qml-launcher-preview-8', 'VERSION': '1.6.12'}.items():
+                            'CURRENT_RELEASE_TAG': 'v1.0.0', 'VERSION': '1.0.0'}.items():
             patcher = patch.object(core, name, value)
             patcher.start()
             self.addCleanup(patcher.stop)
@@ -23,7 +23,7 @@ class QuietUpdateCheckTests(unittest.TestCase):
 
     def reply(self, tag):
         release = {'tag_name': tag, 'html_url': 'https://example.invalid/page',
-                   'assets': [{'name': 'bbport-windows.zip', 'browser_download_url': 'https://example.invalid/zip'}]}
+                   'assets': [{'name': 'bbport-coop-1.0.1-windows-x64.zip', 'browser_download_url': 'https://example.invalid/zip'}]}
 
         class Response:
             def __enter__(self): return self
@@ -32,18 +32,18 @@ class QuietUpdateCheckTests(unittest.TestCase):
         return patch.object(core.urllib.request, 'urlopen', return_value=Response())
 
     def test_newer_release_is_remembered_for_the_launcher(self):
-        with self.reply('qml-launcher-preview-9'):
+        with self.reply('v1.0.1'):
             self.assertTrue(core.quiet_update_check({'check_updates': True}, now=1000))
-        self.assertEqual(core.remembered_update(), ('qml-launcher-preview-9', 'https://example.invalid/zip',
+        self.assertEqual(core.remembered_update(), ('v1.0.1', 'https://example.invalid/zip',
                                                     'https://example.invalid/page'))
 
     def test_current_or_older_release_is_not_offered(self):
-        with self.reply('qml-launcher-preview-8'):
+        with self.reply('v1.0.0'):
             core.quiet_update_check({'check_updates': True})
         self.assertIsNone(core.remembered_update())
 
     def test_switched_off_and_throttled(self):
-        with self.reply('qml-launcher-preview-9') as urlopen:
+        with self.reply('v1.0.1') as urlopen:
             self.assertFalse(core.quiet_update_check({'check_updates': False}))
             self.assertTrue(core.quiet_update_check({'check_updates': True}, now=core.time.time()))
             self.assertFalse(core.quiet_update_check({'check_updates': True}, now=core.time.time() + 60))

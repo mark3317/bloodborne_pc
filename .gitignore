@@ -27,3 +27,5 @@ patches.json
 # Player mods folder for source runs (packages take the Xbox prompts from packaging/windows/mods)
 /mods/
 .claude/settings.local.json
+
+.idea/

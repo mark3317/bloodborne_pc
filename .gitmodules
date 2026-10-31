@@ -16,3 +16,6 @@
 [submodule "gpu/third_party/xbyak"]
 	path = gpu/third_party/xbyak
 	url = https://github.com/herumi/xbyak.git
+[submodule "bbsc"]
+	url = https://github.com/mark3317/BBSC.git
+	path = mods-src/BBSC

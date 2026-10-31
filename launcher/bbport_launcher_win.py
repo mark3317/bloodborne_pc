@@ -44,20 +44,20 @@ PATCH_VERSION = '01.09'
 MAX_LOG_LINES = 6000
 NO_WINDOW = getattr(subprocess, 'CREATE_NO_WINDOW', 0)
 # This fork's build; the release tag includes this version.
-VERSION = '2.1'
-CURRENT_RELEASE_TAG = 'qml-launcher-preview-23'
+VERSION = '1.0.0'
+CURRENT_RELEASE_TAG = 'v1.0.0'
 HERO_ART = PORT_DIR / 'launcher' / 'art' / 'hero.png'
 STRIP_ART = PORT_DIR / 'launcher' / 'art' / 'strip.png'
 # Co-op: the community server that answers the game's own server requests.
 COMMUNITY_SERVER = 'https://thehuntersdream.com'
 # Its co-op service (bbhost's), as run.py's COMMUNITY_API_PORT sets the game's BB_THD_SERVER.
 COMMUNITY_API_PORT = 18671
-RELEASES_API = 'https://api.github.com/repos/Jgamrot/bloodborne_pc/releases/latest'
-RELEASES_PAGE = 'https://github.com/Jgamrot/bloodborne_pc/releases/latest'
+RELEASES_API = 'https://api.github.com/repos/mark3317/bloodborne_pc/releases/latest'
+RELEASES_PAGE = 'https://github.com/mark3317/bloodborne_pc/releases/latest'
 UPDATE_DIR = Path(tempfile.gettempdir()) / 'bbport-update'
 # The last answer from GitHub, so a direct launch (no launcher window) can check quietly and the
 # launcher shows the result the next time it opens. Off with check_updates like every check.
-UPDATE_CACHE = CONFIG_DIR / 'update-check.json'
+UPDATE_CACHE = CONFIG_DIR / 'mark3317-update-check.json'
 QUIET_CHECK_DELAY = 20  # seconds after a direct launch starts the game
 QUIET_CHECK_INTERVAL = 6 * 3600  # at most this often from direct launches
 # Never copied over an installation by an update (the package does not hold them either).
@@ -213,19 +213,6 @@ TWEAKS = [
 # PC enhancements (scripts/enhancements.py, after bbhost): game files made at start; off is the
 # game as it shipped. BB_PC_MIRROR / BB_PC_TWO_INVADERS / BB_PC_REBIRTH / BB_PC_LAMPS /
 # BB_PC_REMATCHES override them.
-# Hunter's Atlas (MikeTat1988/HuntersAtlas, scripts/atlas.py): the full-screen map, its maps made
-# once from the player's game (Mods & Patches > Prepare maps).
-ATLAS = [
-    ('atlas_enabled', ("Hunter's Atlas: full-screen map (Map in the game's quick menu)",
-                       "Hunter's Atlas: полноэкранная карта (пункт «Карта» в быстром меню)"), False),
-    ('atlas_travel', ('Fast travel to discovered lamps from the map', 'Быстрое перемещение к открытым фонарям'), False),
-    ('atlas_fog', ("Reveal an area's map only after its boss", 'Открывать карту области только после босса'), False),
-    ('atlas_items', ('Pickup markers (vials, Insight, equipment, Coldblood)',
-                     'Метки предметов (флаконы, озарение, снаряжение, отголоски)'), False),
-]
-ATLAS_NPC_MODES = [('all', ('All NPCs', 'Все NPC')), ('new_dialogue', ('Only NPCs with new dialogue', 'Только с новыми репликами')),
-                   ('hidden', ('Hidden', 'Скрыты'))]
-ATLAS_DIR = DATA_DIR / 'atlas'
 ENHANCEMENTS = [
     ('pc_mirror_appearance', ("Hunter's Dream mirror: change appearance",
                               'Зеркало в Сне охотника: смена внешности'), False),
@@ -239,13 +226,14 @@ ENHANCEMENTS = [
                            'Повторные бои с боссами у их фонарей (эксперимент; сохраните копию сохранений)'), False),
 ]
 INI_FLAGS = {'sharpen', 'object_motion', 'show_fps', 'mouse_camera', 'mouse_invert_y', 'mouse_menu', 'mouse_hide_cursor', 'frame_gen_fit_display',
-             *(k for k, _t, _o in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS + ATLAS)}
+             *(k for k, _t, _o in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS)}
 INI_DEFAULTS = {'upscaler': 'dlss', 'preset': '2', 'sharpen': '1', 'sharpness': '0.50',
                 'object_motion': '1', 'show_fps': '1', 'output_res': '2560x1440', 'hud_position': '100', 'model_lod': '0',
                 'live_resolution': 'auto', 'mouse_camera': '1', 'mouse_sensitivity': '10', 'mouse_menu': '1',
                 'mouse_invert_y': '0', 'mouse_hide_cursor': '0', 'move_smoothing': '60', 'frame_gen': 'off', 'frame_gen_multiplier': '2', 'frame_gen_fit_display': '0',
-                'atlas_npc_mode': 'all',
-                **{key: '1' if on else '0' for key, _t, on in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS + ATLAS}}
+                **{key: '1' if on else '0' for key, _t, on in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS}}
+from bbport_coop_settings import SETTINGS as COOP_SETTINGS
+
 APP_DEFAULTS = {'ui_language': '', 'game_dir': str(PORT_DIR.parent / 'CUSA03173'), 'user_dir': '', 'dlc_dir': '',
                 'mods_dir': '', 'mods_enabled': True, 'patches_dir': '', 'language': '1',
                 'voice_language': 'auto',
@@ -264,7 +252,8 @@ APP_DEFAULTS = {'ui_language': '', 'game_dir': str(PORT_DIR.parent / 'CUSA03173'
                 # First-run setup (bbport_startup): setupVersion is the wizard version last
                 # finished or skipped; launchDirectly starts the game without the launcher.
                 'setupCompleted': False, 'setupSkipped': False, 'setupVersion': 1,
-                'launchDirectly': True}
+                'launchDirectly': True,
+                **{'bbsc_' + item['id']: item['default'] for item in COOP_SETTINGS}}
 
 
 
@@ -566,8 +555,8 @@ HUNTERS_DREAM_POOL = os.environ.get('BB_HUNTERS_DREAM') != '0'
 ONLINE_POOLS = [('shadnet', ('shadNet server (address below)',)),
                 ('huntersdream', ("The Hunter's Dream (Discord sign-in)",))]
 # Which build a server sees: shadNet's client version and The Hunter's Dream's client field
-# ("bbport-jgamrot/<version>"). This fork's own name, never an official shadPS4 one.
-CLIENT_VERSION = f'bbport-jgamrot {VERSION}'
+# ("bbport-mark3317/<version>"). This fork's own name, never an official shadPS4 one.
+CLIENT_VERSION = f'bbport-mark3317 {VERSION}'
 
 
 # How the launcher's PLAY starts the game: 'offline', 'huntersdream' (online on The Hunter's
@@ -613,7 +602,7 @@ def thd_sign_in(game_server, on_code, cancelled=lambda: False):
     code) shows it. Returns (online id, token); raises ValueError."""
     auth = community_address(game_server)
     start = thd_call(auth + '/auth/device/start',
-                     {'DeviceName': f'bbport-jgamrot on {os.environ.get("COMPUTERNAME", "PC")}'})
+                     {'DeviceName': f'bbport-mark3317 on {os.environ.get("COMPUTERNAME", "PC")}'})
     device, user_code = start.get('DeviceCode', ''), start.get('UserCode', '')
     if not device or not user_code:
         raise ValueError('no code in the reply')
@@ -773,6 +762,16 @@ def install_prompt_pack(choice, source, mods_dir):
 
 def game_environment(s):
     env = dict(os.environ)
+    for item in COOP_SETTINGS:
+        value = s.get('bbsc_' + item['id'], item['default'])
+        if item['type'] == 'bool':
+            value = '1' if value in (True, 1, '1', 'true') else '0'
+        elif item['type'] == 'int':
+            try:
+                value = str(max(item['min'], min(item['max'], int(value))))
+            except (ValueError, TypeError):
+                value = str(item['default'])
+        env[item['env']] = str(value)
     env['BB_PORT_VERSION'] = VERSION
     env['BB_CLIENT_VERSION'] = CLIENT_VERSION  # what shadNet and The Hunter's Dream see
     env['BB_GAME_DIR'] = s['game_dir']
@@ -2574,13 +2573,8 @@ def version_tuple(text):
 
 
 def release_is_newer(tag):
-    """Accept the next QML-series bridge or a newer numbered stable release."""
-    if tag.startswith('qml-launcher-preview-'):
-        try:
-            return int(tag.removeprefix('qml-launcher-preview-')) > int(CURRENT_RELEASE_TAG.removeprefix('qml-launcher-preview-'))
-        except ValueError:
-            return False
-    return version_tuple(tag) > version_tuple(VERSION)
+    """Only numbered stable tags from this fork advance the stable channel."""
+    return bool(re.fullmatch(r'v?\d+\.\d+\.\d+', tag or '')) and version_tuple(tag) > version_tuple(VERSION)
 
 
 def latest_release():
@@ -2591,7 +2585,7 @@ def latest_release():
         release = json.load(response)
     version = release['tag_name']
     url = next((asset['browser_download_url'] for asset in release.get('assets', [])
-                if asset.get('name', '').lower().endswith('.zip')), None)
+                if re.fullmatch(r'bbport-coop-[0-9.]+-windows-x64\.zip', asset.get('name', ''))), None)
     page = release.get('html_url') or RELEASES_PAGE
     try:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)

@@ -1,16 +1,6 @@
-"""Seamless co-op (experimental): BBSC by CLS_AMG, set up and run from the launcher.
-
-BBSC (Bloodborne Seamless Co-op, https://github.com/CLSAMG22/BBSC, GPL-2.0-or-later) keeps a
-co-op session alive through deaths, lamps, areas and bosses for up to five hunters. It needs a
-server: the host's PC runs BBSC's two server programs (shadnet.exe, from Wozzardman's
-shadnet-p2p, and BBSC-GameServer.exe) and the guests reach it over Tailscale (or the same home
-network). The game runs with BBSC's DLL through bbsc-launch.exe, which BBSC's own BBport package
-puts in BB_PROBE's place.
-
-Nothing of BBSC is shipped with the port: its official release packages are downloaded on demand,
-checked against the release's published SHA-256, and unpacked under %LOCALAPPDATA%\\bbport-coop.
-Normal play and normal online are unchanged: co-op settings only reach the game started by
-co_op_environment(), and run.py writes the server redirects for that one launch.
+"""Bundled mark3317 BBSC fork and local co-op services.
+Client binaries ship with the launcher; mutable accounts, saves and journals stay in
+LOCALAPPDATA. Upstream authors and licences are recorded in THIRD_PARTY.md.
 """
 import base64
 import hashlib
@@ -28,7 +18,7 @@ import time
 import urllib.request
 import zipfile
 
-REPO = 'CLSAMG22/BBSC'
+REPO = 'mark3317/BBSC'
 RELEASES = f'https://github.com/{REPO}/releases'
 DISCORD = 'https://discord.gg/Df7BCmfWdt'
 # The BBSC packages this launcher uses, found by name in BBSC's GitHub releases: the newest
@@ -152,10 +142,12 @@ def latest_release(kind):
 
 
 def update_available(kind):
-    """(installed version, newest version) - newest is '' when there is nothing newer."""
     have = installed_version(kind) if installed(kind) else ''
-    newest = latest_release(kind)[0]
-    return have, (newest if not have or _version_key(newest) > _version_key(have) else '')
+    source = port_dir() / 'coop' / kind / 'bundle.json'
+    if not source.is_file():
+        raise CoopError('Bundled co-op files are missing. Re-extract the launcher release.')
+    newest = json.loads(source.read_text(encoding='utf-8'))['version']
+    return have, newest if have != newest else ''
 
 
 def _safe_extract(archive, destination):
@@ -215,29 +207,15 @@ def _install(kind, zip_path, version, source):
 
 
 def download(kind, progress=None):
-    """Downloads the newest BBSC package of this kind, checks its published SHA-256 and installs
-    it; logs, backups and the host's accounts survive (KEEP_ON_UPDATE)."""
-    version, tag, name, url, expected = latest_release(kind)
-    coop_dir().mkdir(parents=True, exist_ok=True)
-    with tempfile.TemporaryDirectory(prefix='.bbsc-', dir=coop_dir()) as temporary:
-        zip_path = Path(temporary) / name
-        digest = hashlib.sha256()
-        request = urllib.request.Request(url, headers={'User-Agent': 'bbport-launcher'})
-        with urllib.request.urlopen(request, timeout=60) as reply, open(zip_path, 'wb') as out:
-            total = int(reply.headers.get('Content-Length') or 0)
-            done = 0
-            while chunk := reply.read(1 << 20):
-                out.write(chunk)
-                digest.update(chunk)
-                done += len(chunk)
-                if progress and total:
-                    progress(f'Downloading {name}: {done * 100 // total}%')
-        if digest.hexdigest() != expected:
-            raise CoopError(f'{name} does not match the checksum BBSC published; not installed.')
-        if progress:
-            progress(f'Installing BBSC {version}…')
-        _install(kind, zip_path, version, f'{RELEASES}/tag/{tag}')
-    return version
+    """Compatibility entry point: install the bundled fork, with no network request."""
+    from bbport_bundle import install
+    source = port_dir() / 'coop' / kind
+    if progress:
+        progress('Preparing bundled co-op…')
+    try:
+        return install(source, package_dir(kind))
+    except (OSError, ValueError, KeyError) as error:
+        raise CoopError(f'Cannot prepare bundled co-op: {error}') from error
 
 
 def install_zip(kind, zip_path, progress=None):
@@ -250,23 +228,8 @@ def install_zip(kind, zip_path, progress=None):
 
 
 def apply_override():
-    """Puts this launcher's own BBSC build (coop/bbsc/ next to Bloodborne.exe) over the official
-    files - only over the BBSC version it was made from, so a newer official BBSC is not
-    replaced by an older build of ours. Returns the version it was applied to, or ''."""
-    folder = port_dir() / OVERRIDE_DIR
-    try:
-        base = str(json.loads((port_dir() / OVERRIDE_FILE).read_text(encoding='utf-8'))['base'])
-    except (OSError, ValueError, KeyError, TypeError):
-        return ''
-    if not folder.is_dir() or not installed('client') or installed_version('client') != base:
-        return ''
-    target = package_dir('client') / 'bbsc'
-    for item in folder.iterdir():
-        if item.is_file():
-            destination = target / item.name
-            if not destination.is_file() or destination.read_bytes() != item.read_bytes():
-                shutil.copy2(item, destination)
-    return base
+    """Synchronize the pinned fork; old package versions are no longer a dependency."""
+    return download('client')
 
 
 def default_invite():

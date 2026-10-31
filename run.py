@@ -93,10 +93,10 @@ def fail(message):
 # from other sites, GitHub issue #118) stopped with "No module named 'game_check'"; it now says
 # what is missing and where the whole package is. (After Awaken's port 0.9.30: "a game folder
 # missing its core files now gets a clear message instead of crashing".)
-START_SCRIPTS = ('game_check.py', 'enhancements.py', 'atlas.py', 'patches.py', 'aspect_ratio.py', 'mods.py',
+START_SCRIPTS = ('game_check.py', 'enhancements.py', 'patches.py', 'aspect_ratio.py', 'mods.py',
                  'language_files.py', 'hud_layout.py', 'content_profile.py', 'link_libc.py', 'link_modules.py',
                  'prepare.py', 'shader_code.py', 'quiet_output.py')
-RELEASES = 'https://github.com/Jgamrot/bloodborne_pc/releases/latest'
+RELEASES = 'https://github.com/mark3317/bloodborne_pc/releases/latest'
 # Text languages (PS4 system language ids) the game shows without Unlock Game Region: English
 # (US) and Russian (GitHub issue #58: Russian text without it).
 REGION_LANGUAGES = ('', '1', '8')
@@ -256,32 +256,6 @@ def physical_cores():
     return os.cpu_count() or 8
 
 
-def start_companions(data, env, game_pid):
-    """Companions (tools/bloodborne_rpc: Discord Rich Presence): programs in <data>/companions/<name>/
-    that run beside the game, each started only when companions.json lists its folder name under
-    "enabled" (none by default). companion.json names the program; it gets the game's process id
-    in BB_GAME_PID. They end with the game."""
-    started = []
-    try:
-        enabled = set(json.loads((data / 'companions.json').read_text(encoding='utf-8')).get('enabled', []))
-    except (OSError, ValueError):
-        return started
-    companions = data / 'companions'
-    for folder in sorted(companions.iterdir() if companions.is_dir() else ()):
-        if not folder.is_dir() or folder.name not in enabled:
-            continue
-        try:
-            spec = json.loads((folder / 'companion.json').read_text(encoding='utf-8'))
-            exe = folder / spec.get('exe', '')
-            if not exe.is_file() or exe.suffix.lower() != '.exe':
-                continue
-            print(f'Companion: {spec.get("name", folder.name)}')
-            started.append(subprocess.Popen([str(exe)], cwd=folder, env={**env, 'BB_GAME_PID': str(game_pid)},
-                                            stdin=subprocess.DEVNULL, creationflags=no_console()))
-        except (OSError, ValueError) as error:
-            print(f'Companion {folder.name} not started: {error}', file=sys.stderr)
-    return started
-
 
 def main():
     args = sys.argv[1:]
@@ -329,19 +303,8 @@ def main():
     # title's Quit Game only when both title movies have its line.
     menu = next((Path(folder) for folder in generated if Path(folder).name == 'pc-menu'), None)
     env['BB_PC_MENU_ASSETS'] = '1' if menu else '0'
-    # Hunter's Atlas (bbport.ini atlas_enabled, scripts/atlas.py): the map's files, prepared once
-    # from the game by the launcher, in the data folder.
-    sys.path.insert(0, str(PORT / 'scripts'))
-    import atlas
-    from patches import read_settings
     for key in [k for k in env if k.startswith(('BB_MAP_', 'BB_ATLAS_'))]:
         del env[key]
-    atlas_env = atlas.environment(read_settings(Path(config)), Path(env.get('BB_ATLAS_DIR', data / 'atlas')))
-    env.update(atlas_env)
-    if atlas_env:
-        print(f"Hunter's Atlas: on (maps in {atlas_env['BB_MAP_DIR']})")
-    elif ini_value(config, 'atlas_enabled') == '1':
-        print("Hunter's Atlas: on in the settings, but its maps are not prepared (launcher: Prepare maps)")
     # Rebirth's runtime half acts only with the altar's rewritten script in place.
     env['BB_PC_REBIRTH_ACTIVE'] = '1' if any(Path(f).name == 'rebirth' for f in generated) else '0'
     env['BB_PC_MENU_QUIT'] = '1' if menu and all(
@@ -573,7 +536,6 @@ def main():
         game_proc = subprocess.Popen(command, stdin=subprocess.DEVNULL, creationflags=no_console())
         started = []
         try:
-            started = start_companions(data, env, game_proc.pid)
             return game_proc.wait()
         finally:
             for proc in started:

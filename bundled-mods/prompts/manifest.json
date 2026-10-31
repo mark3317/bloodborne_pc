@@ -1,0 +1,19 @@
+{
+  "base_sha256": "6c60f895698fe13ab9757739b63356304756c338e62d53bf093266c1e3ddda06",
+  "packs": {
+    "Xbox": {
+      "name": "Xbox Prompts (Dommo)",
+      "patch": "xbox.bsdiff",
+      "sha256": "1d0f63fdc893e1431b8ec4187ded9e2b7dc1da952ce6070b722abbd9d5046dbe",
+      "patch_sha256": "efc1ad4368bf1ce59daf8680bc85fc30a3fe56fc89cc77cd05dc342e7653d122",
+      "credit": "Xbox Prompts (Dommo) by Dommo. https://www.nexusmods.com/bloodborne/mods/30. Bundled as a delta against the player's original 1.09 archive."
+    },
+    "Keyboard": {
+      "name": "Keyboard Prompts (PCBButtons)",
+      "patch": "keyboard.bsdiff",
+      "sha256": "e4b9e6b6a3a0cc5e94065ca6712b24fbe9f43695a7b6ffd4dadd726f317ceffb",
+      "patch_sha256": "004be3bb6190c21714a8237eab7e26ae27aad24dffb40c691e339326e0c51864",
+      "credit": "Keyboard Prompts (PCBButtons) by JinkiJinn. https://www.nexusmods.com/bloodborne/mods/460. Bundled as a delta against the player's original 1.09 archive."
+    }
+  }
+}

@@ -236,12 +236,7 @@ Item {
                             delegate: GlassButton { text: launcher.tr(modelData); width: 124; height: 38; highlighted: launcher.promptChoice === modelData; onClicked: launcher.setPrompt(modelData) }
                         }
                     }
-                    Note { visible: is("Controls", "Button prompts"); text: launcher.tr("Which buttons the game shows, from the next start. Xbox (by Dommo) and Keyboard (PCBButtons by JinkiJinn) are mods from Nexus Mods, not part of the launcher: the first time you choose one, its Nexus page opens and you pick the file you downloaded (.zip, .7z or .rar). Keyboard also binds the keys its images show: E interact, Left Shift dodge, R blood vial, Q item, F transform, mouse buttons to attack.") }
-                    Row { visible: is("Mods & Patches", "Hunter's Atlas (map)"); spacing: 12
-                        GlassButton { text: launcher.tr("Prepare maps"); width: Math.max(160, implicitWidth); height: 38; onClicked: launcher.prepareAtlas() }
-                        Note { text: launcher.atlasStatus; anchors.verticalCenter: parent.verticalCenter; width: 420 }
-                    }
-                    Note { visible: is("Mods & Patches", "Hunter's Atlas (map)"); text: launcher.tr("Hunter's Atlas by MikeTat1988 (GPL-2.0): a full-screen map with your position, floors, lamps and NPCs. Its maps are made from your own game files, once. In the game, open the quick menu and choose Map (the tile beside the first row), or click it.") }
+                    Note { visible: is("Controls", "Button prompts"); text: launcher.tr("Which buttons the game shows, from the next start. Xbox (by Dommo) and Keyboard (PCBButtons by JinkiJinn) are bundled. Select your game folder, then choose the buttons; no separate download is needed. Keyboard also binds the keys its images show: E interact, Left Shift dodge, R blood vial, Q item, F transform, mouse buttons to attack.") }
                     Row { visible: is("Visuals", "Upscaling"); spacing: 12
                         GlassButton { text: launcher.tr("Download FSR 4 assets"); width: Math.max(190, implicitWidth); height: 38; onClicked: launcher.downloadFsr4() }
                         Note { text: launcher.fsrStatus; anchors.verticalCenter: parent.verticalCenter; width: 380 }
@@ -279,11 +274,10 @@ Item {
                         GlassButton { text: launcher.tr("Test connection"); width: Math.max(148, implicitWidth); height: 38; onClicked: launcher.testConnection() }
                     }
                     Note { visible: is("Online", "The Hunter's Dream"); text: launcher.tr("The connection to The Hunter's Dream is Awaken's port of bbhost's network code (GPL-3.0), as Supermedo's port took it in; bbhost and The Hunter's Dream are by droogie and its team. Seamless co-op (the Co-op page) does not use it.") }
-                    Note { visible: is("Co-op", "Seamless co-op"); text: launcher.tr("Experimental. Seamless co-op is BBSC by CLS_AMG (Bloodborne Seamless Co-op): one session through deaths, lamps, areas and bosses, each hunter keeping their own character. Play on a co-op server (an invite code, or the one this launcher comes with), or host one on your PC for friends on Tailscale or your home network. Set up / update BBSC installs the newest BBSC release. Your saves are backed up before every session. Normal play and online are unchanged.") }
+                    Note { visible: is("Co-op", "Seamless co-op"); text: launcher.tr("Experimental. This launcher includes the mark3317 BBSC fork: one session through deaths, lamps, areas and bosses, each hunter keeping their own character. Play on a co-op server (an invite code, or the one this launcher comes with), or host one on your PC for friends on Tailscale or your home network. Prepare bundled BBSC installs the matching files from this launcher, without downloading a separate mod. Your saves are backed up before every session. Normal play and online are unchanged.") }
                     Note { visible: is("Co-op", "Seamless co-op") || is("Co-op", "Host a session") || is("Co-op", "Join a host"); text: launcher.coopStatus }
                     Row { visible: is("Co-op", "Seamless co-op"); spacing: 10
-                        GlassButton { text: launcher.tr("Set up / update BBSC"); width: Math.max(200, implicitWidth); height: 38; enabled: !launcher.coopBusy; onClicked: launcher.coopSetup() }
-                        GlassButton { text: launcher.tr("BBSC from ZIP"); width: Math.max(150, implicitWidth); height: 38; enabled: !launcher.coopBusy; onClicked: launcher.coopInstallZip() }
+                        GlassButton { text: launcher.tr("Prepare bundled BBSC"); width: Math.max(200, implicitWidth); height: 38; enabled: !launcher.coopBusy; onClicked: launcher.coopSetup() }
                         GlassButton { text: launcher.tr("Play co-op"); width: Math.max(140, implicitWidth); height: 38; enabled: !launcher.coopBusy && !launcher.running; onClicked: launcher.coopPlay() }
                         GlassButton { text: launcher.tr("About BBSC"); width: Math.max(130, implicitWidth); height: 38; onClicked: launcher.openCoopHelp() }
                     }

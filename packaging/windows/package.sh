@@ -33,10 +33,10 @@ if [[ ! -x $venv/Scripts/python.exe ]]; then
 fi
 # Qt Quick uses real translucent surfaces over full-window artwork. Pillow remains for the
 # classic Tk fallback. Essentials avoids the unrelated, very large Qt Addons wheel.
-"$venv/Scripts/python.exe" -m pip install -q --disable-pip-version-check pyinstaller pillow certifi PySide6_Essentials==6.12.0
+"$venv/Scripts/python.exe" -m pip install -q --disable-pip-version-check pyinstaller pillow certifi bsdiff4==1.2.6 PySide6_Essentials==6.12.0
 # The scripts run inside Bloodborne.exe (--script): the standard modules they import come along.
 hidden=()
-for module in argparse base64 bisect collections contextlib hashlib json re shutil struct tempfile               xml.etree.ElementTree urllib.request ctypes.wintypes certifi; do
+for module in bsdiff4 argparse base64 bisect collections contextlib hashlib json re shutil struct tempfile               xml.etree.ElementTree urllib.request ctypes.wintypes certifi; do
     hidden+=(--hidden-import "$module")
 done
 "$venv/Scripts/python.exe" -m PyInstaller --noconfirm --clean --log-level WARN --windowed \
@@ -92,28 +92,10 @@ ldd "$dest/bin/bb-probe.exe" "$dest/bin/bb-gpu-capabilities.exe" |
     awk '/\/clang64\/bin\// {print $3}' | sort -u | while read -r dll; do
         cp -u "$dll" "$dest/bin/"
     done
-cp -r scripts patches "$dest/"
-# Hunter's Atlas (tools/atlas/README.md): its art and generator source, and the frozen generator
-# (packaging/windows/build_atlas_generator.sh) when it was built.
-mkdir -p "$dest/tools"
-cp -r tools/atlas "$dest/tools/"
-if [[ -x out/atlas-generator/generate_atlas.exe ]]; then
-    cp -r out/atlas-generator "$dest/tools/atlas-generator"
-else
-    echo "Note: no out/atlas-generator (build_atlas_generator.sh): the package cannot prepare Hunter's Atlas maps" >&2
-fi
-# Discord Rich Presence (tools/bloodborne_rpc, by erezeth): built here from its source, shipped in
-# companions/ and off until the player lists it in companions.json (run.py start_companions).
-rpc="$dest/companions/Discord Rich Presence"
-mkdir -p "$rpc"
-clang++ -std=c++17 -O2 -DUNICODE -D_UNICODE -municode -mwindows -static \
-    tools/bloodborne_rpc/main.cpp -o "$rpc/BloodborneRPC.exe" -lkernel32 -luser32
-cp tools/bloodborne_rpc/companion.json tools/bloodborne_rpc/config.json "$rpc/"
-# Button prompt mods (Xbox by Dommo, PCBButtons by JinkiJinn) are edits of the game's own
-# menu/common.tpf.dcx, so they are not shipped: the launcher adds the player's own Nexus download.
+cp -r scripts patches bundled-mods "$dest/"
 # Legacy CPU (Intel 3rd generation and older): the translation plan scripts/cpu_compat.py applies.
 mkdir -p "$dest/tools" && cp tools/legacy-cpu-plan.json "$dest/tools/"
-cp run.py LICENSE README.md packaging/windows/README-Windows.txt "$dest/"
+cp run.py LICENSE README.md README.ru.md THIRD_PARTY.md packaging/windows/README-Windows.txt "$dest/"
 mkdir -p "$dest/docs"
 cp -r docs/images "$dest/docs/"
 if [[ -d fsr4_shaders ]]; then cp -r fsr4_shaders "$dest/"; fi
@@ -148,7 +130,9 @@ for package in protobuf abseil-cpp openssl miniupnpc zlib; do
     license=/clang64/share/licenses/$package/LICENSE
     if [[ -f $license ]]; then cp "$license" "$dest/licenses/$package-LICENSE.txt"; fi
 done
+"$venv/Scripts/python.exe" packaging/windows/bundle-coop.py
 find "$dest" -name __pycache__ -prune -exec rm -r {} +
+"$venv/Scripts/python.exe" packaging/windows/verify-release.py "$dest"
 # Nothing from the game itself may ship: its archives (.dcx and what they hold) and executables.
 game_files=$(find "$dest" -type f \( -iname '*.dcx' -o -iname '*.tpf' -o -iname '*bnd' -o -iname '*.bdt' \
     -o -iname '*.bhd' -o -iname '*.prx' -o -iname '*.sprx' -o -iname 'eboot.bin' -o -iname 'param.sfo' \))
@@ -173,17 +157,4 @@ with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as package:
             package.write(path, path.relative_to(stage).as_posix())
 PY
 
-# Refresh dist/bbport-windows, keeping what players create there (saves, settings, mods), and
-# only while nothing runs from it: deleting a running launcher's files breaks it.
-play=dist/bbport-windows
-running=$(powershell -NoProfile -Command \
-    "@(Get-Process | Where-Object { \$_.Path -like '$(cygpath -w "$PWD/$play")\\*' }).Count" | tr -d '\r')
-if [[ ${running:-0} != 0 ]]; then
-    echo "dist/bbport-windows is in use ($running processes): not refreshed; the zip is ready." >&2
-else
-    mkdir -p "$play"
-    find "$play" -mindepth 1 -maxdepth 1 ! -name user ! -name mods ! -name bbport.ini \
-        ! -name mods.json ! -name patches.json -exec rm -rf {} +
-    cp -r "$dest/." "$play/"
-fi
 du -sh "$dest" dist/bbport-windows.zip

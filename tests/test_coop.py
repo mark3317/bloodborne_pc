@@ -67,7 +67,8 @@ class CoopTests(unittest.TestCase):
     def test_environment_points_this_launch_at_the_host(self):
         base = {'BB_ONLINE': '0', 'BB_SHADNET_NPID': 'normal', 'BB_GAME_DIR': 'game'}
         port = Path(self.folder.name) / 'bbport-windows'
-        env = coop.co_op_environment(base, '100.65.141.9', 'hunter', 'secret', port / 'bin' / 'bb-probe.exe')
+        with mock.patch.object(coop, 'port_dir', return_value=port):
+            env = coop.co_op_environment(base, '100.65.141.9', 'hunter', 'secret', port / 'bin' / 'bb-probe.exe')
         self.assertEqual(env['BBSC_RELAY'], '100.65.141.9:20444')
         self.assertEqual(env['BB_COOP'], '1')
         # BBSC reads the redirects itself from <port>\user\host_overrides.json (the game starts there).
