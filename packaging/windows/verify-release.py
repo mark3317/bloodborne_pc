@@ -7,13 +7,15 @@ import sys
 
 def verify(root):
     root = Path(root).resolve(strict=True)
-    for name in ('Bloodborne.exe', 'bin/bb-probe.exe', 'run.py', 'README.ru.md', 'THIRD_PARTY.md',
+    for name in ('Bloodborne.exe', 'bin/Play Bloodborne.exe', 'bin/bb-probe.exe', 'run.py', 'README.ru.md', 'THIRD_PARTY.md',
                  'coop/client/bbsc/bbsc.dll', 'coop/client/bbsc/bbsc-launch.exe',
                  'coop/client/account/shadnet-sample.exe', 'coop/server/server/shadnet.exe',
                  'coop/server/server/BBSC-GameServer.exe', 'mods/manifest.json',
                  'licenses/BBSC-LICENSE.txt'):
         if not (root / name).is_file():
             raise ValueError(f'Missing release file: {name}')
+    if sorted(p.name for p in root.glob('*.exe')) != ['Bloodborne.exe']:
+        raise ValueError('Only the launcher EXE may be in the package root')
     for kind in ('client', 'server'):
         folder = root / 'coop' / kind
         manifest = json.loads((folder / 'bundle.json').read_text(encoding='utf-8'))

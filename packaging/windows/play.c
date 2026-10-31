@@ -1,5 +1,5 @@
 /* Play Bloodborne.exe: starts the game with the settings saved by the launcher, without opening
- * the launcher (it runs `Bloodborne.exe --play` from its own folder and waits for it, so Steam
+ * the launcher (it runs `Bloodborne.exe --play` from the package root above bin and waits for it, so Steam
  * and other front ends see the game running). Extra arguments are passed on. */
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -16,6 +16,11 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
     wchar_t *slash = wcsrchr(dir, L'\\');
     if (slash)
         *slash = 0;
+    /* Installed under bin; resolve the package root independently of the caller's cwd. */
+    slash = wcsrchr(dir, L'\\');
+    if (!slash)
+        return 1;
+    *slash = 0;
     swprintf(exe, 32768, L"%ls\\Bloodborne.exe", dir);
     swprintf(parameters, 32768, L"--play%ls%ls", arguments && *arguments ? L" " : L"",
              arguments ? arguments : L"");
@@ -45,7 +50,7 @@ int WINAPI wWinMain(HINSTANCE instance, HINSTANCE previous, PWSTR arguments, int
     if (!game) {
         /* "Not found" only when it really is missing: every failure used to say so. */
         if (GetFileAttributesW(exe) == INVALID_FILE_ATTRIBUTES) {
-            swprintf(text, 1024, L"Bloodborne.exe was not found next to this file:\n%ls", dir);
+            swprintf(text, 1024, L"Bloodborne.exe was not found in the package root:\n%ls", dir);
         } else {
             wchar_t reason[512] = L"";
             FormatMessageW(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, error, 0,

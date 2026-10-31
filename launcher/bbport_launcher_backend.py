@@ -1225,7 +1225,7 @@ class LauncherBackend(QObject):
             self._set_notice('Steam was not found on this PC or no account has signed in.')
             return
         if core.FROZEN:
-            exe, options = core.PORT_DIR / 'Play Bloodborne.exe', ''
+            exe, options = core.PORT_DIR / 'bin' / 'Play Bloodborne.exe', ''
         else:
             pythonw = Path(sys.executable).with_name('pythonw.exe')
             exe = pythonw if pythonw.exists() else Path(sys.executable)

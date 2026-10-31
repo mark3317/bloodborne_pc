@@ -58,7 +58,7 @@ dest="out/stage/Bloodborne Game Launcher"
 rm -rf -- out/stage
 mkdir -p "$dest/bin" "$dest/launcher"
 cp -r out/pyi-dist/Bloodborne/. "$dest/"
-llvm-strip -o "$dest/Play Bloodborne.exe" out/bb-play.exe
+llvm-strip -o "$dest/bin/Play Bloodborne.exe" out/bb-play.exe
 cp launcher/bloodborne.ico launcher/bloodborne.png "$dest/launcher/"
 cp -r launcher/art "$dest/launcher/"
 cp -r launcher/qml "$dest/launcher/"

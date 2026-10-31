@@ -2491,7 +2491,7 @@ class Launcher:
             self.messagebox.showerror('Bloodborne', _('Steam was not found on this PC (or nobody has signed in to it yet).'))
             return
         if FROZEN:
-            exe, options = PORT_DIR / 'Play Bloodborne.exe', ''
+            exe, options = PORT_DIR / 'bin' / 'Play Bloodborne.exe', ''
         else:
             pythonw = Path(sys.executable).with_name('pythonw.exe')
             exe, options = (pythonw if pythonw.exists() else Path(sys.executable)), f'"{Path(__file__).resolve()}" --play'

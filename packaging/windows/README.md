@@ -33,8 +33,8 @@ bash packaging/windows/package.sh  # dist/Bloodborne Game Launcher/ and .zip: Bl
 The package freezes the launcher with PyInstaller (a private venv in `out/pyenv`, from a
 python.org Python) into `Bloodborne.exe`, which also runs `run.py` (`--run`), the preparation
 scripts (`--script`) and the game without the window (`--play`): players need no Python.
-`Play Bloodborne.exe` (`packaging/windows/play.c`) is a small native program that runs
-`Bloodborne.exe --play` from its folder and waits for it, for players who want to start the
+`bin/Play Bloodborne.exe` (`packaging/windows/play.c`) is a small native program that runs
+`Bloodborne.exe --play` from the package root and waits for it, for players who want to start the
 game directly with the saved settings.
 `patches.py` applies the 1.09 patches only to a 1.09 game (`BB_FORCE_PATCHES=1` overrides);
 `run.py` then runs other versions at 30 FPS with live resolution changes.
@@ -50,8 +50,7 @@ FSR 3 (scene color, depth, render-pixel motion vectors, jitter). `BB_DLSS=0` tur
 
 The launcher texts are written in English with the Russian beside them; the other languages
 are in `launcher/bbport_lang.py` (one list per language in the order of `KEYS`; a missing or
-empty text falls back to English). The icon (`launcher/bloodborne.ico`/`.png`) is drawn by
-`packaging/windows/make_icon.py` and built into `Bloodborne.exe`, `bb-probe.exe` (the game
+empty text falls back to English). The icon (`launcher/bloodborne.ico`/`.png`) uses the supplied BBGL artwork and built into `Bloodborne.exe`, `bb-probe.exe` (the game
 window) and `bb-gpu-capabilities.exe`.
 
 ## What is different from Linux
