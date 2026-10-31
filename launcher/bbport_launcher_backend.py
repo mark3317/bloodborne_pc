@@ -1069,10 +1069,7 @@ class LauncherBackend(QObject):
 
     @Slot(str)
     def setPrompt(self, choice):
-        """Xbox and Keyboard: prompt images from Nexus Mods (Dommo's Xbox prompts; JinkiJinn's
-        PCBButtons key images, with the keys those images show bound in bbport.ini). The port does
-        not ship them: the first time, the player's own download is added to the mods folder
-        (core.install_prompt_pack). PlayStation: the game's own."""
+        """Reconstruct included Xbox/Keyboard packs offline from the player's game archive."""
         if choice not in ('Xbox', 'PlayStation', 'Keyboard'):
             return
         names = [m['name'] for m in self._mods if self._is_prompt_mod(m['name'])]
@@ -1281,7 +1278,7 @@ class LauncherBackend(QObject):
         if self._coop_status:
             return self._coop_status
         if not coop.installed('client'):
-            return 'Bundled BBSC is ready to prepare. Play co-op installs it automatically.'
+            return 'Bundled BBSC files are missing. Re-extract the launcher release.'
         version = coop.installed_version('client') or '?'
         if self._coop_host.running:
             return f'BBSC {version}. Hosting on {self._coop_host.address}. Send your friend the invite code.'

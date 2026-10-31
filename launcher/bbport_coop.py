@@ -488,7 +488,8 @@ class Host:
         game_log = open(logs / f'gameserver-{stamp}.log', 'w', encoding='utf-8', errors='replace')
         self.processes.append(subprocess.Popen(
             [str(server / 'BBSC-GameServer.exe'), '--shadnet', address, '--host', '0.0.0.0',
-             '--advertise', address, '--summon-interval', '5', '--no-playlog', '--log-dir', str(logs)],
+             '--advertise', address, '--summon-interval', '5', '--no-playlog',
+             '--data', str(shadnet / 'online-data.json'), '--log-dir', str(logs)],
             cwd=shadnet, stdout=game_log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
             creationflags=NO_WINDOW))
         time.sleep(1)
@@ -662,7 +663,7 @@ def co_op_environment(env, address, name, password, probe, save_copy=None):
     # online launch rewrites the port's user\host_overrides.json, so this copy serves this
     # co-op launch only.
     from bbport_paths import profile_dir
-    port_user = profile_dir() / 'user'  # the launcher's own user\ (also with BBSC's emulator)
+    port_user = profile_dir() / 'user'
     port_user.mkdir(parents=True, exist_ok=True)
     (port_user / 'host_overrides.json').write_text(text, encoding='utf-8')
     env = dict(env)

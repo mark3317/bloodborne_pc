@@ -20,12 +20,23 @@ def verify(root):
         for name, expected in manifest['files'].items():
             if hashlib.sha256((folder / name).read_bytes()).hexdigest() != expected:
                 raise ValueError(f'Bundle checksum mismatch: {kind}/{name}')
+    prompts = root / 'bundled-mods/prompts'
+    prompt_manifest = json.loads((prompts / 'manifest.json').read_text(encoding='utf-8'))
+    for pack in prompt_manifest['packs'].values():
+        if hashlib.sha256((prompts / pack['patch']).read_bytes()).hexdigest() != pack['patch_sha256']:
+            raise ValueError('Damaged bundled prompt pack')
+    for line in (root / 'coop/server/server/shadnet.cfg').read_text(encoding='utf-8').splitlines():
+        if line.startswith('RegistrationSecretKey=') and line.split('=', 1)[1].strip():
+            raise ValueError('Personal registration key in release')
+    if 'coopSetup()' in (root / 'launcher/qml/SettingsWorkspace.qml').read_text(encoding='utf-8'):
+        raise ValueError('Obsolete BBSC preparation button in release')
     for path in root.rglob('*'):
         if not path.is_file():
             continue
         name = path.name.lower()
         parts = {p.lower() for p in path.relative_to(root).parts}
-        if (name in ('settings.json', 'account.dat', 'eboot.bin', 'param.sfo', 'coop-server.json')
+        if (name in ('settings.json', 'account.dat', 'eboot.bin', 'param.sfo', 'coop-server.json',
+                     'bbport.ini', 'mods.json', 'patches.json', 'online-data.json')
                 or name.endswith(('.dcx', '.tpf', '.bdt', '.bhd', '.dmp', '.log', '.bak', '.pyc'))
                 or parts & {'savedata', 'captures', 'own-world', 'bell-pending', 'guest-items',
                             'shared-progress', 'discord rich presence', 'atlas', '__pycache__'}):
