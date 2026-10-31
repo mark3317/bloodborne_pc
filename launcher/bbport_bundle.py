@@ -31,3 +31,15 @@ def install(source, destination):
     (destination / 'bbport-package.json').write_text(
         json.dumps({'version': manifest['version'], 'source': manifest['source']}), encoding='utf-8')
     return manifest['version']
+
+
+def verify(source):
+    source = Path(source)
+    manifest = json.loads((source / 'bundle.json').read_text(encoding='utf-8'))
+    for name, expected in manifest['files'].items():
+        relative = Path(name)
+        if relative.is_absolute() or '..' in relative.parts:
+            raise ValueError('Invalid bundled path')
+        if hashlib.sha256((source / relative).read_bytes()).hexdigest() != expected:
+            raise ValueError(f'Damaged bundled file: {name}')
+    return manifest['version']

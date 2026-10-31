@@ -35,10 +35,11 @@ import zipfile
 FROZEN = getattr(sys, 'frozen', False)
 PORT_DIR = Path(sys.executable).resolve().parent if FROZEN else Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PORT_DIR / 'scripts'))
-DATA_DIR = Path(os.environ.get('BB_DATA_DIR', PORT_DIR))
+from bbport_paths import profile_dir
+DATA_DIR = profile_dir()
 # Co-op test build: its own settings, and no updates (a public release would replace it).
 COOP_TEST = False
-CONFIG_DIR = Path(os.environ.get('APPDATA', Path.home())) / ('bbport-launcher-coop' if COOP_TEST else 'bbport-launcher')
+CONFIG_DIR = DATA_DIR
 CONFIG_FILE = CONFIG_DIR / 'settings.json'
 PATCH_VERSION = '01.09'
 MAX_LOG_LINES = 6000
@@ -182,7 +183,7 @@ EFFECTS = [
     ('effect_ssr', ('Screen-space reflections (not in the original)', 'Отражения SSR (не было в игре)'), False),
 ]
 EXTRAS = [
-    ('skip_intro', ('Skip the intro logos and movie', 'Пропуск заставок при запуске'), False),
+    ('skip_intro', ('Skip the intro logos and movie', 'Пропуск заставок при запуске'), True),
     ('debug_camera', ('Free camera (hold Cross + L3; keyboard Space + Z)', 'Свободная камера (Cross + L3 / Space + Z)'), False),
     ('debug_menu', ('Game debug menu (left touchpad / Tab; needs the debug fonts)',
                     'Debug menu (левый touchpad / Tab; нужны шрифты)'), False),
@@ -227,8 +228,24 @@ ENHANCEMENTS = [
 ]
 INI_FLAGS = {'sharpen', 'object_motion', 'show_fps', 'mouse_camera', 'mouse_invert_y', 'mouse_menu', 'mouse_hide_cursor', 'frame_gen_fit_display',
              *(k for k, _t, _o in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS)}
+def display_resolution():
+    # Physical pixels, independent of the launcher's Qt scaling.
+    try:
+        class Mode(ctypes.Structure):
+            _fields_ = [('header', ctypes.c_byte * 172), ('width', ctypes.c_ulong),
+                        ('height', ctypes.c_ulong), ('tail', ctypes.c_byte * 40)]
+        # EnumDisplaySettingsW's DEVMODEW layout: dmSize at 68, width/height at 172/176.
+        mode = Mode()
+        ctypes.c_ushort.from_buffer(mode, 68).value = 220
+        if ctypes.windll.user32.EnumDisplaySettingsW(None, -1, ctypes.byref(mode)):
+            return f'{mode.width}x{mode.height}'
+    except (AttributeError, OSError):
+        pass
+    return '1920x1080'
+
+
 INI_DEFAULTS = {'upscaler': 'dlss', 'preset': '2', 'sharpen': '1', 'sharpness': '0.50',
-                'object_motion': '1', 'show_fps': '1', 'output_res': '2560x1440', 'hud_position': '100', 'model_lod': '0',
+                'object_motion': '1', 'show_fps': '1', 'output_res': display_resolution(), 'hud_position': '100', 'model_lod': '0',
                 'live_resolution': 'auto', 'mouse_camera': '1', 'mouse_sensitivity': '10', 'mouse_menu': '1',
                 'mouse_invert_y': '0', 'mouse_hide_cursor': '0', 'move_smoothing': '60', 'frame_gen': 'off', 'frame_gen_multiplier': '2', 'frame_gen_fit_display': '0',
                 **{key: '1' if on else '0' for key, _t, on in EFFECTS + EXTRAS + CHEATS + TWEAKS + ENHANCEMENTS}}
@@ -448,11 +465,13 @@ def load_json(path, default):
         return default
 
 
+
 def ini_path():
     return Path(os.environ.get('BB_CONFIG', DATA_DIR / 'bbport.ini'))
 
 
 def load_ini():
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     values, lines = dict(INI_DEFAULTS), []
     try:
         lines = ini_path().read_text(encoding='utf-8').splitlines()
@@ -774,6 +793,9 @@ def game_environment(s):
         env[item['env']] = str(value)
     env['BB_PORT_VERSION'] = VERSION
     env['BB_CLIENT_VERSION'] = CLIENT_VERSION  # what shadNet and The Hunter's Dream see
+    env['BB_DATA_DIR'] = str(DATA_DIR)
+    env['BB_CONFIG'] = str(ini_path())
+    env['BB_USER_DIR'] = s['user_dir'] or str(DATA_DIR / 'user')
     env['BB_GAME_DIR'] = s['game_dir']
     if s['user_dir']:
         env['BB_USER_DIR'] = s['user_dir']
@@ -2718,6 +2740,8 @@ def install_update(target, wait_pid):
 
 def main():
     global LANG
+    from bbport_paths import initialize
+    initialize(PORT_DIR)
     args = sys.argv[1:]
     if args and args[0] in ('--run', '--script'):
         sys.exit(run_role(args))

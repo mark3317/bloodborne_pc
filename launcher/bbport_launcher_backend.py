@@ -1359,25 +1359,6 @@ class LauncherBackend(QObject):
         webbrowser.open(coop.RELEASES)
 
     @Slot()
-    def coopSetup(self):
-        """Installs BBSC, or updates it when a newer release is out (the server package too, when
-        this PC has hosted)."""
-        def work():
-            done = []
-            kinds = ('client', 'server') if coop.installed('server') else ('client',)
-            for kind in kinds:
-                have, newest = coop.update_available(kind)
-                if newest:
-                    coop.download(kind, progress=self._coop_progress)
-                    done.append(f'{kind} {have or "none"} -> {newest}')
-            coop.apply_override()
-            version = coop.installed_version('client')
-            if done:
-                return f'BBSC {version} installed ({"; ".join(done)}).'
-            return f'Bundled BBSC {version} is ready.'
-        self._coop_run('Preparing bundled co-op…', work)
-
-    @Slot()
     def coopStartHosting(self):
         name, password = self._coop_account()
         if not name or not password:

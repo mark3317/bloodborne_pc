@@ -15,10 +15,13 @@ import bbport_coop as coop
 class CoopTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
-        patcher = mock.patch.dict(os.environ, {'LOCALAPPDATA': self.folder.name})
+        patcher = mock.patch.dict(os.environ, {'LOCALAPPDATA': self.folder.name, 'APPDATA': self.folder.name})
         patcher.start()
         self.addCleanup(patcher.stop)
         self.addCleanup(self.folder.cleanup)
+        port_patch = mock.patch.object(coop, 'port_dir', return_value=Path(self.folder.name) / 'port')
+        port_patch.start()
+        self.addCleanup(port_patch.stop)
 
     def test_invite_round_trip_and_damage(self):
         code = coop.make_invite('100.65.141.9', 'abc123')
@@ -32,7 +35,7 @@ class CoopTests(unittest.TestCase):
             coop.read_invite(coop.INVITE_PREFIX + '!!!')
 
     def test_registration_key_is_made_once(self):
-        cfg = coop.package_dir('server') / 'server' / 'shadnet.cfg'
+        cfg = coop.shadnet_dir() / 'shadnet.cfg'
         cfg.parent.mkdir(parents=True)
         cfg.write_text('[General]\nHost=0.0.0.0\nRegistrationSecretKey=\n', encoding='utf-8')
         with mock.patch.object(coop, 'bundled_server', return_value=None):  # BBSC's own server
@@ -41,28 +44,20 @@ class CoopTests(unittest.TestCase):
             self.assertEqual(coop.registration_key(), key)
         self.assertIn(f'RegistrationSecretKey={key}', cfg.read_text(encoding='utf-8'))
 
-    def test_the_bundled_server_runs_from_its_own_folder_with_the_hosts_key(self):
-        # This port's shadnet.exe (STUN fix) keeps its config and database beside itself: it is
-        # copied under bbport-coop and takes BBSC's configuration, key included, the first time.
-        bbsc = coop.package_dir('server') / 'server'
-        bbsc.mkdir(parents=True)
-        (bbsc / 'shadnet.cfg').write_text('[General]\nRegistrationSecretKey=hostkey\n', encoding='utf-8')
-        bundled = Path(self.folder.name) / 'port' / 'bin' / 'coop-server'
-        (bundled / 'sqldrivers').mkdir(parents=True)
-        (bundled / 'shadnet.exe').write_bytes(b'new server')
-        (bundled / 'sqldrivers' / 'qsqlite.dll').write_bytes(b'plugin')
-        with mock.patch.object(coop, 'bundled_server', return_value=bundled):
-            self.assertEqual(coop.registration_key(), 'hostkey')
-            folder = coop.shadnet_dir()
-            self.assertEqual(folder, coop.coop_dir() / 'shadnet-bbport')
-            self.assertEqual((folder / 'shadnet.exe').read_bytes(), b'new server')
-            self.assertTrue((folder / 'sqldrivers' / 'qsqlite.dll').is_file())
-            # Its own config from then on; an update of the programs keeps it.
-            (folder / 'shadnet.cfg').write_text('[General]\nRegistrationSecretKey=kept\n', encoding='utf-8')
-            (bundled / 'shadnet.exe').write_bytes(b'newer server!')
-            coop.shadnet_dir(sync=True)
-            self.assertEqual((folder / 'shadnet.exe').read_bytes(), b'newer server!')
-            self.assertEqual(coop.registration_key(), 'kept')
+    def test_host_configuration_is_in_profile_and_binaries_stay_installed(self):
+        bundled = coop.package_dir('server') / 'server'
+        bundled.mkdir(parents=True)
+        for name in ('shadnet.cfg', 'worlds.cfg', 'scoreboards.cfg'):
+            (bundled / name).write_text('RegistrationSecretKey=hostkey\n', encoding='utf-8')
+        (bundled / 'shadnet.exe').write_bytes(b'server')
+        self.assertEqual(coop.registration_key(), 'hostkey')
+        target = coop.shadnet_dir()
+        self.assertEqual(target, coop.coop_dir() / 'server')
+        self.assertFalse((target / 'shadnet.exe').exists())
+        (target / 'shadnet.cfg').write_text('RegistrationSecretKey=kept\n', encoding='utf-8')
+        coop.shadnet_dir(sync=True)
+        self.assertEqual(coop.registration_key(), 'kept')
+        self.assertEqual((bundled / 'shadnet.cfg').read_text(), 'RegistrationSecretKey=hostkey\n')
 
     def test_environment_points_this_launch_at_the_host(self):
         base = {'BB_ONLINE': '0', 'BB_SHADNET_NPID': 'normal', 'BB_GAME_DIR': 'game'}
@@ -72,7 +67,7 @@ class CoopTests(unittest.TestCase):
         self.assertEqual(env['BBSC_RELAY'], '100.65.141.9:20444')
         self.assertEqual(env['BB_COOP'], '1')
         # BBSC reads the redirects itself from <port>\user\host_overrides.json (the game starts there).
-        self.assertEqual((port / 'user' / 'host_overrides.json').read_text(encoding='utf-8'),
+        self.assertEqual((coop.coop_dir().parent / 'user' / 'host_overrides.json').read_text(encoding='utf-8'),
                          Path(env['BB_HOST_OVERRIDES']).read_text(encoding='utf-8'))
         self.assertEqual(base['BB_SHADNET_NPID'], 'normal')  # the normal environment is untouched
         self.assertEqual(env['BB_SHADNET_SERVER'], '100.65.141.9:31313')

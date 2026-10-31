@@ -71,15 +71,12 @@ def port_dir():
 
 
 def coop_dir():
-    return Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'bbport-coop'
+    from bbport_paths import profile_dir
+    return profile_dir() / 'coop'
 
 
 def package_dir(kind):
-    folder = coop_dir() / PACKAGE_FOLDERS[kind]
-    legacy = coop_dir() / LEGACY_FOLDERS[kind]
-    if not folder.exists() and legacy.is_dir():
-        return legacy
-    return folder
+    return port_dir() / 'coop' / kind
 
 
 def installed(kind):
@@ -92,14 +89,8 @@ def installed(kind):
 
 
 def installed_version(kind):
-    """The BBSC version of an installed package, or '' (none, or unknown)."""
-    folder = package_dir(kind)
     try:
-        return str(json.loads((folder / VERSION_FILE).read_text(encoding='utf-8'))['version'])
-    except (OSError, ValueError, KeyError, TypeError):
-        pass
-    try:  # a package installed before this file existed: the mod's own version
-        return str(json.loads((folder / 'bbsc' / 'mod.json').read_text(encoding='utf-8'))['version'])
+        return str(json.loads((package_dir(kind) / 'bundle.json').read_text(encoding='utf-8'))['version'])
     except (OSError, ValueError, KeyError, TypeError):
         return ''
 
@@ -207,15 +198,12 @@ def _install(kind, zip_path, version, source):
 
 
 def download(kind, progress=None):
-    """Compatibility entry point: install the bundled fork, with no network request."""
-    from bbport_bundle import install
-    source = port_dir() / 'coop' / kind
-    if progress:
-        progress('Preparing bundled co-op…')
+    """Compatibility entry point: validate installed binaries, never copy them to the profile."""
+    from bbport_bundle import verify
     try:
-        return install(source, package_dir(kind))
+        return verify(package_dir(kind))
     except (OSError, ValueError, KeyError) as error:
-        raise CoopError(f'Cannot prepare bundled co-op: {error}') from error
+        raise CoopError(f'Bundled co-op files are damaged. Re-extract the launcher release: {error}') from error
 
 
 def install_zip(kind, zip_path, progress=None):
@@ -437,28 +425,14 @@ def bundled_server():
 
 
 def shadnet_dir(sync=False):
-    """The folder shadnet.exe runs from. It keeps shadnet.cfg and its database beside itself, so
-    this port's server runs from its own folder under bbport-coop, which updates leave alone.
-    sync (only while the server is stopped): copy the bundled programs there, and BBSC's
-    configuration (ports, seamless co-op, the host's registration key) the first time."""
-    bundled = bundled_server()
-    if bundled is None:
-        return package_dir('server') / 'server'
-    target = coop_dir() / 'shadnet-bbport'
+    """Only configuration, database and logs live in the writable profile."""
+    target = coop_dir() / 'server'
     if sync:
-        for source in bundled.rglob('*'):
-            if not source.is_file() or source.name in (
-                    'shadnet.cfg', 'worlds.cfg', 'scoreboards.cfg', 'BBSC-GameServer.exe'):
-                continue
-            copy = target / source.relative_to(bundled)
-            if (not copy.is_file() or copy.stat().st_size != source.stat().st_size
-                    or copy.stat().st_mtime < source.stat().st_mtime):
-                copy.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, copy)
-        bbsc = package_dir('server') / 'server'
+        target.mkdir(parents=True, exist_ok=True)
         for name in ('shadnet.cfg', 'worlds.cfg', 'scoreboards.cfg'):
-            if not (target / name).exists() and (bbsc / name).is_file():
-                shutil.copy2(bbsc / name, target / name)
+            source = package_dir('server') / 'server' / name
+            if not (target / name).exists():
+                shutil.copy2(source, target / name)
     return target
 
 
@@ -501,12 +475,13 @@ class Host:
         if shadnet != server:
             end_leftovers(shadnet)
         shadnet = shadnet_dir(sync=True)
-        logs = server / 'logs'
+        logs = shadnet / 'logs'
         logs.mkdir(exist_ok=True)
         stamp = time.strftime('%Y%m%d-%H%M%S')
-        env = dict(os.environ, SHADNET_BLOODBORNE_SEAMLESS_COOP='1')
+        env = dict(os.environ, SHADNET_BLOODBORNE_SEAMLESS_COOP='1',
+                   BBSC_SERVER_DATA_DIR=str(shadnet))
         shadnet_log = open(logs / f'shadnet-{stamp}.log', 'w', encoding='utf-8', errors='replace')
-        self.processes.append(subprocess.Popen([str(shadnet / 'shadnet.exe')], cwd=shadnet, env=env,
+        self.processes.append(subprocess.Popen([str(server / 'shadnet.exe')], cwd=shadnet, env=env,
                                                stdout=shadnet_log, stderr=subprocess.STDOUT,
                                                stdin=subprocess.DEVNULL, creationflags=NO_WINDOW))
         time.sleep(2)
@@ -514,7 +489,7 @@ class Host:
         self.processes.append(subprocess.Popen(
             [str(server / 'BBSC-GameServer.exe'), '--shadnet', address, '--host', '0.0.0.0',
              '--advertise', address, '--summon-interval', '5', '--no-playlog', '--log-dir', str(logs)],
-            cwd=server, stdout=game_log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+            cwd=shadnet, stdout=game_log, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
             creationflags=NO_WINDOW))
         time.sleep(1)
         if not self.running or any(p.poll() is not None for p in self.processes):
@@ -579,11 +554,13 @@ def read_invite(code):
 
 def _account_tool(address, *arguments):
     tool = package_dir('client') / 'account' / 'shadnet-sample.exe'
+    account_dir = coop_dir() / 'account'
+    account_dir.mkdir(parents=True, exist_ok=True)
     if not tool.is_file():
         raise CoopError('Set up co-op first (the BBSC package is missing).')
     try:
         result = subprocess.run([str(tool), address, str(SHADNET_PORT), *arguments], capture_output=True,
-                                text=True, timeout=30, cwd=tool.parent, creationflags=NO_WINDOW)
+                                text=True, timeout=30, cwd=account_dir, creationflags=NO_WINDOW)
     except subprocess.TimeoutExpired:
         raise CoopError(f'No answer from the co-op server at {address}. Is the host hosting, '
                         'and are you both on Tailscale?') from None
@@ -684,7 +661,8 @@ def co_op_environment(env, address, name, password, probe, save_copy=None):
     # starts it in the port's folder), its exe's folder\user or %APPDATA%\shadPS4. Every normal
     # online launch rewrites the port's user\host_overrides.json, so this copy serves this
     # co-op launch only.
-    port_user = port_dir() / 'user'  # the launcher's own user\ (also with BBSC's emulator)
+    from bbport_paths import profile_dir
+    port_user = profile_dir() / 'user'  # the launcher's own user\ (also with BBSC's emulator)
     port_user.mkdir(parents=True, exist_ok=True)
     (port_user / 'host_overrides.json').write_text(text, encoding='utf-8')
     env = dict(env)
@@ -704,6 +682,7 @@ def co_op_environment(env, address, name, password, probe, save_copy=None):
     if save_dir:
         env['BBSC_SAVE_DIR'] = str(save_dir)
     env.update({
+        'BBSC_DATA_DIR': str(coop_dir() / 'bbsc'),
         'BBSC_RELAY': f'{address}:{RELAY_PORT}',  # BBSC's relay (warps, world sync) on the host
         'BB_PROBE': str(launcher),
         'BBSC_EMULATOR': str(probe),

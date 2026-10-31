@@ -1,0 +1,16 @@
+diff --git a/src/main.cpp b/src/main.cpp
+--- a/src/main.cpp
++++ b/src/main.cpp
+@@ -25,7 +25,11 @@ int main(int argc, char* argv[]) {
+     app.setApplicationName("shadnet");
+ 
+     // Set working directory to executable location
+-    QDir::setCurrent(QCoreApplication::applicationDirPath());
++    const QString profile = qEnvironmentVariable("BBSC_SERVER_DATA_DIR");
++    if (!profile.isEmpty()) {
++        QDir().mkpath(profile);
++    }
++    QDir::setCurrent(profile.isEmpty() ? QCoreApplication::applicationDirPath() : profile);
+ 
+     qInfo() << "ShadNet Qt server version" << versionString;
+ 
