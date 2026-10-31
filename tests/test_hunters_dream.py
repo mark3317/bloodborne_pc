@@ -79,7 +79,7 @@ class HuntersDreamTests(unittest.TestCase):
 
     def test_client_version_names_this_fork(self):
         env = launcher.game_environment(self.settings)
-        self.assertEqual(env['BB_CLIENT_VERSION'], f'bbport-jgamrot {launcher.VERSION}')
+        self.assertEqual(env['BB_CLIENT_VERSION'], f'bbgl {launcher.VERSION}')
         self.assertNotIn('shadPS4', env['BB_CLIENT_VERSION'])
 
     def test_sign_in_opens_the_link_page_with_its_code(self):
@@ -106,7 +106,7 @@ class HuntersDreamTests(unittest.TestCase):
             line = launcher.thd_account_check('https://thehuntersdream.com', 'Hunter1', 'tok')
         request = urlopen.call_args[0][0]
         self.assertEqual(request.get_header('X-bb-token'), 'tok')
-        self.assertEqual(request.get_header('User-agent'), f'bbport-jgamrot/{launcher.VERSION}')
+        self.assertEqual(request.get_header('User-agent'), f'bbgl/{launcher.VERSION}')
         self.assertIn('refused by the server (This client is not supported)', line)
         self.assertIn('signing in again does not help', line)
         # Any other refusal is the account's: signing in again is the way out.

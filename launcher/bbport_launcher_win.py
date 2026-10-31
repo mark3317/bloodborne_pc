@@ -574,8 +574,8 @@ HUNTERS_DREAM_POOL = os.environ.get('BB_HUNTERS_DREAM') != '0'
 ONLINE_POOLS = [('shadnet', ('shadNet server (address below)',)),
                 ('huntersdream', ("The Hunter's Dream (Discord sign-in)",))]
 # Which build a server sees: shadNet's client version and The Hunter's Dream's client field
-# ("bbport-mark3317/<version>"). This fork's own name, never an official shadPS4 one.
-CLIENT_VERSION = f'bbport-mark3317 {VERSION}'
+# ("bbgl/<version>"). This fork's own name, never an official shadPS4 one.
+CLIENT_VERSION = f'bbgl {VERSION}'
 
 
 # How the launcher's PLAY starts the game: 'offline', 'huntersdream' (online on The Hunter's
@@ -621,7 +621,7 @@ def thd_sign_in(game_server, on_code, cancelled=lambda: False):
     code) shows it. Returns (online id, token); raises ValueError."""
     auth = community_address(game_server)
     start = thd_call(auth + '/auth/device/start',
-                     {'DeviceName': f'bbport-mark3317 on {os.environ.get("COMPUTERNAME", "PC")}'})
+                     {'DeviceName': f'bbgl on {os.environ.get("COMPUTERNAME", "PC")}'})
     device, user_code = start.get('DeviceCode', ''), start.get('UserCode', '')
     if not device or not user_code:
         raise ValueError('no code in the reply')
