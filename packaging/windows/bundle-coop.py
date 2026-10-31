@@ -16,7 +16,6 @@ ROOT = Path(__file__).resolve().parents[2]
 FORK = ROOT / 'mods-src/BBSC'
 VENDORS = {
     'BBport': '001efc0a03b47bd6b2660c598fd6d172d2aaae3201a4982134d1f215918acd3c',
-    'Server': '54b0bd1b608b869f76c868ef534df6c019ed8c4b82b49ee7dc7fc3acf4db6213',
 }
 
 
@@ -55,13 +54,7 @@ def main():
     for name in ('bbsc.dll', 'bbsc-launch.exe', 'mod.json'):
         shutil.copy2(FORK / 'build/mod' / name, client / 'bbsc' / name)
     extract_vendor('BBport', 'account', client / 'account', lambda n: n.endswith(('.dll', '.exe')))
-    extract_vendor('Server', 'server', server / 'server', lambda n:
-                   n in ('shadnet.exe', 'Qt6Core.dll', 'Qt6HttpServer.dll', 'Qt6Network.dll',
-                         'Qt6Sql.dll', 'Qt6WebSockets.dll', 'icuuc.dll',
-                         'sqldrivers/qsqlite.dll', 'networkinformation/qnetworklistmanager.dll',
-                         'tls/qcertonlybackend.dll', 'tls/qschannelbackend.dll'))
-    for dll in (client / 'account').glob('*140*.dll'):
-        shutil.copy2(dll, server / 'server' / dll.name)
+    shutil.copytree(ROOT / 'out/coop-server', server / 'server', dirs_exist_ok=True)
     for name in ('shadnet.cfg', 'worlds.cfg', 'scoreboards.cfg'):
         shutil.copy2(FORK / 'server/server' / name, server / 'server' / name)
     # Frozen from this exact submodule revision, including its relay fixes.

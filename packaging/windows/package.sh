@@ -96,8 +96,6 @@ cp -r scripts patches bundled-mods "$dest/"
 # Legacy CPU (Intel 3rd generation and older): the translation plan scripts/cpu_compat.py applies.
 mkdir -p "$dest/tools" && cp tools/legacy-cpu-plan.json "$dest/tools/"
 cp run.py LICENSE README.md README.ru.md THIRD_PARTY.md packaging/windows/README-Windows.txt "$dest/"
-mkdir -p "$dest/docs"
-cp -r docs/images "$dest/docs/"
 if [[ -d fsr4_shaders ]]; then cp -r fsr4_shaders "$dest/"; fi
 # Shader pre-build catalog (scripts/shader_catalog.py): records only, no game code or SPIR-V.
 if [[ -d shader_catalog ]]; then cp -r shader_catalog "$dest/"; fi
@@ -110,13 +108,6 @@ if [[ -f out/bbport_dlss.dll && -f out/nvngx_dlss.dll ]]; then
     cp gpu/dlss_bridge/LICENSE.txt "$dest/licenses/bbport_dlss-LICENSE.txt"
 else
     echo "DLSS bridge not built (packaging/windows/build_dlss.sh): no DLSS in this package" >&2
-fi
-# Seamless co-op hosts: the shadNet server with the PS4-framing STUN fix
-# (packaging/windows/build_coop_server.sh). Without it hosts use BBSC's own shadnet.exe.
-if [[ -f out/coop-server/shadnet.exe ]]; then
-    cp -r out/coop-server "$dest/bin/"
-else
-    echo "Co-op server not built (packaging/windows/build_coop_server.sh): hosts use BBSC's" >&2
 fi
 # Online co-op: the libraries compiled in (wepoll, cpp-httplib) and the MSYS2 DLLs it loads.
 mkdir -p "$dest/licenses"

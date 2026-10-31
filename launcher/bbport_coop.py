@@ -429,7 +429,8 @@ PORT_DIR = (Path(sys.executable).resolve().parent if getattr(sys, 'frozen', Fals
 
 
 def bundled_server():
-    for folder in (PORT_DIR / 'bin' / 'coop-server', PORT_DIR / 'out' / 'coop-server'):
+    for folder in (PORT_DIR / 'coop' / 'server' / 'server',
+                   PORT_DIR / 'bin' / 'coop-server', PORT_DIR / 'out' / 'coop-server'):
         if (folder / 'shadnet.exe').is_file():
             return folder
     return None
@@ -446,7 +447,8 @@ def shadnet_dir(sync=False):
     target = coop_dir() / 'shadnet-bbport'
     if sync:
         for source in bundled.rglob('*'):
-            if not source.is_file():
+            if not source.is_file() or source.name in (
+                    'shadnet.cfg', 'worlds.cfg', 'scoreboards.cfg', 'BBSC-GameServer.exe'):
                 continue
             copy = target / source.relative_to(bundled)
             if (not copy.is_file() or copy.stat().st_size != source.stat().st_size

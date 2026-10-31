@@ -34,7 +34,12 @@ RUSSIAN = False
 
 def T(text):
     """The launcher text in the launcher language (English is the key)."""
-    return bbport_qml_ru.tr(text) if RUSSIAN and isinstance(text, str) else text
+    if RUSSIAN and isinstance(text, str):
+        for _key, titles, _default in core.EFFECTS + core.EXTRAS + core.CHEATS + core.TWEAKS + core.ENHANCEMENTS:
+            if text == titles[0] and len(titles) > 1:
+                return titles[1]
+        return bbport_qml_ru.tr(text)
+    return text
 
 
 def translated(getter):
@@ -298,7 +303,6 @@ class LauncherBackend(QObject):
         for signal in (self.changed, self.coopChanged, self.thdChanged):
             signal.connect(self.playModeChanged)
         self._route = dict(route or LAUNCHER_ROUTE)
-        self._atlas_progress = ''  # Hunter's Atlas: the map preparation's progress line
         self._problem = self._route.get('problem', '')
         self._game_started = False
         self._checks_started = False

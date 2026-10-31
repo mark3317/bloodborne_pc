@@ -9,6 +9,23 @@ The classic Tk launcher keeps its own table (bbport_i18n.py).
 import re
 
 RU = {
+    "In the host's Hunter's Dream a guest sees its own Dream (own messengers, shops, Doll, workshop tools); off = the host's copy of the Dream": 'Гость видит собственный Сон охотника: своих посланников, магазины, Куклу и инструменты мастерской.',
+    "Removes the summoned guest's 30% max HP cut": 'Убирает снижение максимального здоровья призванного гостя на 30%.',
+    'A kept death still drops a bloodstain and echoes': 'При смерти остаются пятно крови и отголоски.',
+    'The bell costs no Insight': 'Использование колокола не расходует озарение.',
+    "Enemies and bosses get stronger for every guest (replaces the game's own boss buff)": 'Враги и боссы становятся сильнее за каждого гостя. Заменяет стандартное усиление боссов.',
+    'Henryk, Djura and the other hostile hunters also get the enemy scaling (off = vanilla)': 'Усиление также применяется к Генрику, Джуре и другим враждебным охотникам.',
+    'Extra health for normal enemies, per guest': 'Дополнительное здоровье обычных врагов за каждого гостя.',
+    'Extra health for bosses, per guest': 'Дополнительное здоровье боссов за каждого гостя.',
+    'Extra damage for enemies and bosses, per guest': 'Дополнительный урон врагов и боссов за каждого гостя.',
+    'Harder to stagger normal enemies, per guest': 'Дополнительная устойчивость обычных врагов к ошеломлению за каждого гостя.',
+    'Harder to stagger bosses, per guest': 'Дополнительная устойчивость боссов к ошеломлению за каждого гостя.',
+    "When a guest goes home, bosses, shortcuts, doors and lamps the host has done are added to the guest's own world (adds only, never removes; NPC quests and your character are not touched; saves backed up first)": 'После возвращения гостя домой прогресс боссов, проходов и фонарей хоста добавляется к его миру. Квесты NPC и персонаж не заменяются; сначала создаётся копия сохранения.',
+    'Extra logs for the developers (key item census, item hooks, every flag in a session). Off = faster': 'Подробные журналы для диагностики. По умолчанию выключены.',
+    'Enter a whole number within the setting range.': 'Введите целое число в допустимом диапазоне.',
+    'Which buttons the game shows, from the next start. Xbox (by Dommo) and Keyboard (PCBButtons by JinkiJinn) are bundled. Select your game folder, then choose the buttons; no separate download is needed. Keyboard also binds the keys its images show: E interact, Left Shift dodge, R blood vial, Q item, F transform, mouse buttons to attack.': 'Значки кнопок меняются после перезапуска игры. Xbox от Dommo и PCBButtons от JinkiJinn уже включены: выберите папку игры и нужный набор. Клавиатура также настраивает соответствующие клавиши: E — действие, Shift — уклонение, R — флакон, Q — предмет, F — трансформация, кнопки мыши — атаки.',
+    'Experimental. This launcher includes the mark3317 BBSC fork: one session through deaths, lamps, areas and bosses, each hunter keeping their own character. Play on a co-op server (an invite code, or the one this launcher comes with), or host one on your PC for friends on Tailscale or your home network. Prepare bundled BBSC installs the matching files from this launcher, without downloading a separate mod. Your saves are backed up before every session. Normal play and online are unchanged.': 'Экспериментальный кооператив на основе форка BBSC от mark3317: одна сессия через смерти, фонари, области и боссов. Каждый сохраняет своего персонажа. Подключитесь по коду приглашения или создайте сервер на своём ПК. BBSC включён в комплект и не требует отдельной загрузки. Перед каждой сессией создаётся копия сохранений.',
+
     'Prepare bundled BBSC': 'Подготовить встроенный BBSC',
     'Preparing bundled co-op…': 'Подготовка встроенного коопа…',
     'Co-op gameplay': 'Настройки кооператива',
