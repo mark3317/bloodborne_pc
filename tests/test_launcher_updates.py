@@ -23,7 +23,7 @@ class QuietUpdateCheckTests(unittest.TestCase):
 
     def reply(self, tag):
         release = {'tag_name': tag, 'html_url': 'https://example.invalid/page',
-                   'assets': [{'name': 'bbport-coop-1.0.1-windows-x64.zip', 'browser_download_url': 'https://example.invalid/zip'}]}
+                   'assets': [{'name': 'bbgl-1.0.1-windows-x64.zip', 'browser_download_url': 'https://example.invalid/zip'}]}
 
         class Response:
             def __enter__(self): return self
@@ -67,15 +67,15 @@ class InstallUpdateTests(unittest.TestCase):
     def test_backslash_zip_unpacks_into_folders(self):
         archive = self.root / 'update.zip'
         with core.zipfile.ZipFile(archive, 'w') as package:
-            for name, data in (('bbport-windows\\_internal\\_ssl.pyd', b'ssl'),
-                               ('bbport-windows/scripts/game_check.py', b'check'),
-                               ('bbport-windows\\..\\..\\outside.txt', b'no')):
+            for name, data in (('Bloodborne Game Launcher\\_internal\\_ssl.pyd', b'ssl'),
+                               ('Bloodborne Game Launcher/scripts/game_check.py', b'check'),
+                               ('Bloodborne Game Launcher\\..\\..\\outside.txt', b'no')):
                 entry = core.zipfile.ZipInfo('x')
                 entry.filename = name  # as written, without zipfile's separator clean-up
                 package.writestr(entry, data)
         core.extract_update(archive, self.root / 'new')
-        self.assertEqual((self.root / 'new/bbport-windows/_internal/_ssl.pyd').read_bytes(), b'ssl')
-        self.assertEqual((self.root / 'new/bbport-windows/scripts/game_check.py').read_bytes(), b'check')
+        self.assertEqual((self.root / 'new/Bloodborne Game Launcher/_internal/_ssl.pyd').read_bytes(), b'ssl')
+        self.assertEqual((self.root / 'new/Bloodborne Game Launcher/scripts/game_check.py').read_bytes(), b'check')
         self.assertFalse((self.root / 'outside.txt').exists())
 
     def test_new_files_arrive_and_player_files_stay(self):
@@ -95,11 +95,11 @@ class InstallUpdateTests(unittest.TestCase):
     @unittest.skipUnless(sys.platform == 'win32', 'an open file blocks deleting it only on Windows')
     def test_update_folder_kept_while_installing(self):
         folder = self.root / 'bbport-update'
-        (folder / 'new/bbport-windows/scripts').mkdir(parents=True)
+        (folder / 'new/Bloodborne Game Launcher/scripts').mkdir(parents=True)
         with patch.object(core, 'UPDATE_DIR', folder):
             with open(core.update_installing_mark(), 'w'):
                 self.assertFalse(core.remove_update_folder())
-                self.assertTrue((folder / 'new/bbport-windows/scripts').is_dir())
+                self.assertTrue((folder / 'new/Bloodborne Game Launcher/scripts').is_dir())
             self.assertTrue(core.remove_update_folder())
             self.assertFalse(folder.exists())
 

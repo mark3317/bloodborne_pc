@@ -24,7 +24,7 @@ RU = {
     'Extra logs for the developers (key item census, item hooks, every flag in a session). Off = faster': 'Подробные журналы для диагностики. По умолчанию выключены.',
     'Enter a whole number within the setting range.': 'Введите целое число в допустимом диапазоне.',
     'Which buttons the game shows, from the next start. Xbox (by Dommo) and Keyboard (PCBButtons by JinkiJinn) are bundled. Select your game folder, then choose the buttons; no separate download is needed. Keyboard also binds the keys its images show: E interact, Left Shift dodge, R blood vial, Q item, F transform, mouse buttons to attack.': 'Значки кнопок меняются после перезапуска игры. Xbox от Dommo и PCBButtons от JinkiJinn уже включены: выберите папку игры и нужный набор. Клавиатура также настраивает соответствующие клавиши: E — действие, Shift — уклонение, R — флакон, Q — предмет, F — трансформация, кнопки мыши — атаки.',
-    'Experimental. This launcher includes the mark3317 BBSC fork: one session through deaths, lamps, areas and bosses, each hunter keeping their own character. Play on a co-op server (an invite code, or the one this launcher comes with), or host one on your PC for friends on Tailscale or your home network. BBSC client and hosting files are included and ready to use. Your saves are backed up before every session. Normal play and online are unchanged.': 'Экспериментальный кооператив на основе форка BBSC от mark3317: одна сессия через смерти, фонари, области и боссов. Каждый сохраняет своего персонажа. Подключитесь по коду приглашения или создайте сервер на своём ПК. BBSC включён в комплект и не требует отдельной загрузки. Перед каждой сессией создаётся копия сохранений.',
+    'Experimental. This launcher includes the BBSC-GL fork: one session through deaths, lamps, areas and bosses, each hunter keeping their own character. Play on a co-op server (an invite code, or the one this launcher comes with), or host one on your PC for friends on Tailscale or your home network. BBSC-GL client and hosting files are included and ready to use. Your saves are backed up before every session. Normal play and online are unchanged.': 'Экспериментальный кооператив на основе форка BBSC-GL: одна сессия через смерти, фонари, области и боссов. Каждый сохраняет своего персонажа. Подключитесь по коду приглашения или создайте сервер на своём ПК. BBSC-GL включён в комплект и не требует отдельной загрузки. Перед каждой сессией создаётся копия сохранений.',
 
     'Prepare bundled BBSC': 'Подготовить встроенный BBSC',
     'Preparing bundled co-op…': 'Подготовка встроенного коопа…',
@@ -42,7 +42,7 @@ RU = {
     'Boss stagger resistance per guest (%)': 'Устойчивость боссов за гостя (%)',
     'Shared progress': 'Общий прогресс',
     'Research logs': 'Подробные диагностические логи',
-    'Bundled BBSC is ready to prepare. Play co-op installs it automatically.': 'BBSC включён в комплект. При запуске коопа он будет подготовлен автоматически.',
+    'Bundled BBSC is ready to prepare. Play co-op installs it automatically.': 'BBSC-GL включён в комплект. При запуске коопа он будет подготовлен автоматически.',
 
     # --- Home, rail, splash -------------------------------------------------------------------
     'Default location': 'Папка по умолчанию',

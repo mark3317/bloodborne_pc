@@ -47,7 +47,7 @@ def extract_vendor(kind, prefix, destination, allowed):
 
 
 def main():
-    dest = ROOT / 'out/stage/bbport-windows/coop'
+    dest = ROOT / 'out/stage/Bloodborne Game Launcher/coop'
     client, server = dest / 'client', dest / 'server'
     (client / 'bbsc').mkdir(parents=True, exist_ok=True)
     (server / 'server').mkdir(parents=True, exist_ok=True)
@@ -69,7 +69,7 @@ def main():
     revision = subprocess.check_output(['git', '-C', str(FORK), 'rev-parse', 'HEAD'], text=True).strip()
     version = json.loads((FORK / 'emulator/mod/mod.json').read_text(encoding='utf-8'))['version']
     for folder in (client, server):
-        manifest = {'version': version, 'source': f'https://github.com/mark3317/BBSC/tree/{revision}',
+        manifest = {'version': version, 'source': f'https://github.com/mark3317/bbsc-gl/tree/{revision}',
                     'files': {p.relative_to(folder).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
                               for p in sorted(folder.rglob('*')) if p.is_file() and p.name != 'bundle.json'}}
         (folder / 'bundle.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

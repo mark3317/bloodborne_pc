@@ -171,7 +171,7 @@ class HuntersDreamTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             with mock.patch.dict(os.environ, {'LOCALAPPDATA': temp}):
                 env = coop.co_op_environment(base, '100.65.141.9', 'hunter', 'secret',
-                                             Path(temp) / 'bbport-windows' / 'bin' / 'bb-probe.exe')
+                                             Path(temp) / 'Bloodborne Game Launcher' / 'bin' / 'bb-probe.exe')
         for key in run.THD_ENV:
             self.assertNotIn(key, env)
         self.assertEqual(env['BB_SHADNET_SERVER'], '100.65.141.9:31313')

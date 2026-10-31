@@ -5,22 +5,25 @@ import shutil
 
 
 def profile_dir():
-    root = Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData' / 'Local')) / 'bbport-launcher'
-    legacy = Path(os.environ.get('APPDATA', Path.home() / 'AppData' / 'Roaming')) / 'bbport-launcher'
+    local = Path(os.environ.get('LOCALAPPDATA', Path.home() / 'AppData' / 'Local'))
+    roaming = Path(os.environ.get('APPDATA', Path.home() / 'AppData' / 'Roaming'))
+    root = local / 'bbgl'
+    # Prefer the most recent Local profile, then fill gaps from the older Roaming one.
+    # A new marker makes this independent of the previous Roaming-to-Local migration.
+    for label, legacy in (('local', local / 'bbport-launcher'),
+                          ('roaming', roaming / 'bbport-launcher')):
+        marker = root / f'.migrated-from-{label}-bbport-v1'
+        if legacy.is_dir() and not marker.exists():
+            root.mkdir(parents=True, exist_ok=True)
+            for source in legacy.rglob('*'):
+                target = root / source.relative_to(legacy)
+                if source.is_dir():
+                    target.mkdir(parents=True, exist_ok=True)
+                elif source.is_file() and not target.exists():
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copy2(source, target)
+            marker.write_text('1\n', encoding='utf-8')
 
-    # Keep the existing profile when changing from Roaming to Local. Copy only missing files,
-    # so anything already written in Local wins; leave the old profile in place as a backup.
-    marker = root / '.migrated-from-roaming-v1'
-    if legacy != root and legacy.is_dir() and not marker.exists():
-        root.mkdir(parents=True, exist_ok=True)
-        for source in legacy.rglob('*'):
-            target = root / source.relative_to(legacy)
-            if source.is_dir():
-                target.mkdir(parents=True, exist_ok=True)
-            elif source.is_file() and not target.exists():
-                target.parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(source, target)
-        marker.write_text('1\n', encoding='utf-8')
     return root
 
 

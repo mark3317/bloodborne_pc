@@ -1266,14 +1266,14 @@ class LauncherBackend(QObject):
         if self._coop_status:
             return self._coop_status
         if not coop.installed('client'):
-            return 'Bundled BBSC files are missing. Re-extract the launcher release.'
+            return 'Bundled BBSC-GL files are missing. Re-extract the launcher release.'
         version = coop.installed_version('client') or '?'
         if self._coop_host.running:
-            return f'BBSC {version}. Hosting on {self._coop_host.address}. Send your friend the invite code.'
+            return f'BBSC-GL {version}. Hosting on {self._coop_host.address}. Send your friend the invite code.'
         if not self.app.get('coop_invite', '').strip() and coop.default_invite():
             server = coop.default_server_name() or 'the co-op server of this launcher'
-            return f'BBSC {version}. Ready: Play co-op joins {server}.'
-        return f"BBSC {version}. Ready. Host a session, or paste a host's invite code and play."
+            return f'BBSC-GL {version}. Ready: Play co-op joins {server}.'
+        return f"BBSC-GL {version}. Ready. Host a session, or paste a host's invite code and play."
 
     @Property(str, notify=coopChanged)
     def coopInvite(self):

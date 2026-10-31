@@ -6,7 +6,7 @@ ApplicationWindow {
     visible: true
     width: 1290; height: 830
     minimumWidth: 1050; minimumHeight: 650
-    title: "Bloodborne Co-op · mark3317 · " + launcher.version
+    title: "Bloodborne Game Launcher (BBGL) · " + launcher.version
     color: Theme.base
     property string page: "Home"
     property int wizardStep: 0

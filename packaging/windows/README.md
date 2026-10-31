@@ -26,7 +26,7 @@ git submodule update --init --recursive
 bash build.sh                      # out/bb-probe.exe, out/bb-gpu-capabilities.exe
 BB_GAME_DIR=F:/path/to/CUSA03173 python run.py
 python launcher/bbport_launcher_win.py
-bash packaging/windows/package.sh  # dist/bbport-windows/ and .zip: Bloodborne.exe + DLLs
+bash packaging/windows/package.sh  # dist/Bloodborne Game Launcher/ and .zip: Bloodborne.exe + DLLs
 ```
 
 `run.py` is the Windows `run.sh` (same variables; works from a plain Windows Python too).

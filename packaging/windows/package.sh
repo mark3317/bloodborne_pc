@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Builds dist/bbport-windows/ (and dist/bbport-windows.zip): Bloodborne.exe (the launcher, frozen
+# Builds dist/Bloodborne Game Launcher/ (and dist/bbgl-windows.zip): Bloodborne.exe (the launcher, frozen
 # with PyInstaller so players need no Python), bb-probe.exe with the MSYS2 CLANG64 DLLs it needs,
 # the preparation scripts and run.py. Run from an MSYS2 CLANG64 shell after `bash build.sh`.
 # Freezing uses a Windows Python 3.10+ (python.org; WINPYTHON overrides) and a private venv with
@@ -52,9 +52,9 @@ for dll in VCRUNTIME140.dll VCRUNTIME140_1.dll; do
 done
 rm -f "$pyi_internal/icuuc.dll" "$pyi_internal/icudt78.dll"
 
-# The package is assembled in a fresh staging folder and zipped from there; dist/bbport-windows
+# The package is assembled in a fresh staging folder and zipped from there; dist/Bloodborne Game Launcher
 # (a playable copy that may hold saves and settings) is only refreshed afterwards.
-dest=out/stage/bbport-windows
+dest="out/stage/Bloodborne Game Launcher"
 rm -rf -- out/stage
 mkdir -p "$dest/bin" "$dest/launcher"
 cp -r out/pyi-dist/Bloodborne/. "$dest/"
@@ -134,19 +134,19 @@ if [[ -n $game_files ]]; then
     exit 1
 fi
 mkdir -p dist
-rm -f dist/bbport-windows.zip
+rm -f dist/bbgl-windows.zip
 # Zip entries need forward slashes: Windows PowerShell's Compress-Archive writes backslashes,
-# which other unzip tools (Linux, Proton) turn into flat files named "bbport-windows\_internal\..."
+# which other unzip tools (Linux, Proton) turn into flat files named "Bloodborne Game Launcher\_internal\..."
 # (issue #75).
-"$venv/Scripts/python.exe" - out/stage dist/bbport-windows.zip <<'PY'
+"$venv/Scripts/python.exe" - out/stage dist/bbgl-windows.zip <<'PY'
 from pathlib import Path
 import sys, zipfile
 
 stage, archive = Path(sys.argv[1]), Path(sys.argv[2])
 with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as package:
-    for path in sorted((stage / 'bbport-windows').rglob('*')):
+    for path in sorted((stage / 'Bloodborne Game Launcher').rglob('*')):
         if path.is_file():
             package.write(path, path.relative_to(stage).as_posix())
 PY
 
-du -sh "$dest" dist/bbport-windows.zip
+du -sh "$dest" dist/bbgl-windows.zip

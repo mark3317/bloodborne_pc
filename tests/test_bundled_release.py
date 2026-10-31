@@ -47,7 +47,7 @@ class BundleTests(unittest.TestCase):
         for tag in ('qml-launcher-preview-99', 'v1.0.1-rc1', 'v1.0.0', 'v0.9.9'):
             self.assertFalse(core.release_is_newer(tag))
         self.assertTrue(core.release_is_newer('v1.0.1'))
-        self.assertIn('/mark3317/bloodborne_pc/', core.RELEASES_API)
+        self.assertIn('/mark3317/bbgl/', core.RELEASES_API)
 
     def test_settings_reach_mod_environment_and_cheat_is_available(self):
         settings = dict(core.APP_DEFAULTS, bbsc_shared_progress=False, bbsc_scale_enemy_hp=75)

@@ -5,7 +5,7 @@
 Every setting of the port in one window: the game folder and saves, bbport.ini (upscaler,
 preset, output, effects), start-up options passed to run.py as environment variables
 (frame rate, presentation, HDR, ...), mods, third-party patches and the FSR 4 assets.
-Launcher options live in %LOCALAPPDATA%/bbport-launcher/settings.json.
+Launcher options live in %LOCALAPPDATA%/bbgl/settings.json.
 
 Frozen with PyInstaller (packaging/windows/package.sh) the same Bloodborne.exe also runs the
 game without the window (`--play`), run.py (`--run`) and the preparation scripts (`--script`),
@@ -53,8 +53,8 @@ STRIP_ART = PORT_DIR / 'launcher' / 'art' / 'strip.png'
 COMMUNITY_SERVER = 'https://thehuntersdream.com'
 # Its co-op service (bbhost's), as run.py's COMMUNITY_API_PORT sets the game's BB_THD_SERVER.
 COMMUNITY_API_PORT = 18671
-RELEASES_API = 'https://api.github.com/repos/mark3317/bloodborne_pc/releases/latest'
-RELEASES_PAGE = 'https://github.com/mark3317/bloodborne_pc/releases/latest'
+RELEASES_API = 'https://api.github.com/repos/mark3317/bbgl/releases/latest'
+RELEASES_PAGE = 'https://github.com/mark3317/bbgl/releases/latest'
 UPDATE_DIR = Path(tempfile.gettempdir()) / 'bbport-update'
 # The last answer from GitHub, so a direct launch (no launcher window) can check quietly and the
 # launcher shows the result the next time it opens. Off with check_updates like every check.
@@ -897,7 +897,7 @@ class Launcher:
         self.mod_order, self.mod_vars, self.patch_vars = [], {}, {}
         self.mod_profile_mtime = None
         self.mod_dirty = False
-        root.title('Bloodborne')
+        root.title('Bloodborne Game Launcher (BBGL)')
         root.configure(bg=BG)
         try:
             hwnd = ctypes.windll.user32.GetParent(root.winfo_id())
@@ -2607,7 +2607,7 @@ def latest_release():
         release = json.load(response)
     version = release['tag_name']
     url = next((asset['browser_download_url'] for asset in release.get('assets', [])
-                if re.fullmatch(r'bbport-coop-[0-9.]+-windows-x64\.zip', asset.get('name', ''))), None)
+                if re.fullmatch(r'bbgl-[0-9.]+-windows-x64\.zip', asset.get('name', ''))), None)
     page = release.get('html_url') or RELEASES_PAGE
     try:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)

@@ -61,7 +61,7 @@ class CoopTests(unittest.TestCase):
 
     def test_environment_points_this_launch_at_the_host(self):
         base = {'BB_ONLINE': '0', 'BB_SHADNET_NPID': 'normal', 'BB_GAME_DIR': 'game'}
-        port = Path(self.folder.name) / 'bbport-windows'
+        port = Path(self.folder.name) / 'Bloodborne Game Launcher'
         with mock.patch.object(coop, 'port_dir', return_value=port):
             env = coop.co_op_environment(base, '100.65.141.9', 'hunter', 'secret', port / 'bin' / 'bb-probe.exe')
         self.assertEqual(env['BBSC_RELAY'], '100.65.141.9:20444')
@@ -90,7 +90,7 @@ class CoopTests(unittest.TestCase):
             folder.mkdir(parents=True)
             (folder / 'userdata0000').write_bytes(b'save')
             os.utime(folder / 'userdata0000', (when, when))
-        port = Path(self.folder.name) / 'bbport-windows'
+        port = Path(self.folder.name) / 'Bloodborne Game Launcher'
         env = coop.co_op_environment({'BB_USER_DIR': str(user)}, '100.65.141.9', 'hunter', 'secret',
                                      port / 'bin' / 'bb-probe.exe')
         self.assertEqual(Path(env['BBSC_SAVE_DIR']), newer)

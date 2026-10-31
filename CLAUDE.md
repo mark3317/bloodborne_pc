@@ -1,3 +1,7 @@
+# Current naming (2026-10-31)
+
+BBGL = Bloodborne Game Launcher; GitHub: mark3317/bbgl. Mod: BBSC-GL, mark3317/bbsc-gl. Release folder: `Bloodborne Game Launcher`; profile: `%LOCALAPPDATA%\bbgl`. Source checkout folder names below remain local paths. Historical test paths refer to the installation at the time.
+
 # bloodborne_pc / bbport (форк mark3317) — заметки для Claude
 
 Windows-порт Bloodborne (bbport) + Qt/QML-лаунчер на Python, в нашем форке — сборка «bbport-coop»
@@ -18,7 +22,7 @@ Windows-порт Bloodborne (bbport) + Qt/QML-лаунчер на Python, в н�
 VPS `remote_server` (77.73.67.175, Ubuntu 24, ssh `root`) — co-op сервер (shadNet/BBSC gameserver).
 
 ## Git
-- Remotes: `mark` = github.com/mark3317/bloodborne_pc (push сюда), `origin` = Jgamrot/bloodborne_pc (апстрим, только fetch).
+- Remotes: `mark` = github.com/mark3317/bbgl (push сюда), `origin` = Jgamrot/bloodborne_pc (апстрим, только fetch).
 - Рабочая ветка: `mark/coop-relay`. Не пушить в `origin`, без force-push без явной просьбы.
 - Стиль коммитов: `<область>: <что сделано>` (например `bbnet event filter: ...`).
 

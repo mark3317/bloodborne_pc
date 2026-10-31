@@ -22,7 +22,7 @@ class ProfileLayoutTests(unittest.TestCase):
             (source / 'bbsc.dll').write_bytes(b'mod')
             (source / 'bundle.json').write_text(json.dumps({'version': 'test', 'files': {
                 'bbsc.dll': hashlib.sha256(b'mod').hexdigest()}}))
-            with patch.object(coop, 'port_dir', return_value=port), patch.dict(os.environ, {'APPDATA': temp}):
+            with patch.object(coop, 'port_dir', return_value=port), patch.dict(os.environ, {'APPDATA': temp, 'LOCALAPPDATA': temp}):
                 with patch('urllib.request.urlopen', side_effect=AssertionError('Network used')):
                     self.assertEqual(coop.download('client'), 'test')
                     self.assertFalse(coop.coop_dir().exists())
@@ -49,8 +49,29 @@ class ProfileLayoutTests(unittest.TestCase):
             paths.initialize(port)
             self.assertTrue((root / 'profile-layout-v2').exists())
 
+    def test_bbgl_imports_local_before_roaming_and_preserves_existing_data(self):
+        with tempfile.TemporaryDirectory() as temp:
+            local, roaming = Path(temp) / 'local', Path(temp) / 'roaming'
+            for folder, value in ((local, 'local'), (roaming, 'roaming')):
+                old = folder / 'bbport-launcher'
+                (old / 'user/savedata').mkdir(parents=True)
+                (old / 'settings.json').write_text(value)
+                (old / 'user/savedata/save').write_bytes(value.encode())
+                (old / 'profile-layout-v2').write_text('2')
+            (roaming / 'bbport-launcher/input.ini').write_text('controls')
+            with patch.dict(os.environ, {'LOCALAPPDATA': str(local), 'APPDATA': str(roaming)}):
+                root = paths.profile_dir()
+                self.assertEqual(root, local / 'bbgl')
+                self.assertEqual((root / 'settings.json').read_text(), 'local')
+                self.assertEqual((root / 'user/savedata/save').read_bytes(), b'local')
+                self.assertEqual((root / 'input.ini').read_text(), 'controls')
+                (root / 'settings.json').write_text('new')
+                paths.profile_dir()
+                self.assertEqual((root / 'settings.json').read_text(), 'new')
+                self.assertEqual((local / 'bbport-launcher/settings.json').read_text(), 'local')
+
     def test_host_keeps_both_servers_database_and_logs_in_profile(self):
-        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'APPDATA': temp}):
+        with tempfile.TemporaryDirectory() as temp, patch.dict(os.environ, {'APPDATA': temp, 'LOCALAPPDATA': temp}):
             port = Path(temp) / 'install'
             folder = port / 'coop/server/server'
             folder.mkdir(parents=True)

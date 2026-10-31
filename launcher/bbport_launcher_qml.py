@@ -24,7 +24,7 @@ def run_ui(route=None):
     """ROUTE comes from bbport_startup.route(); without one the launcher opens on Home."""
     QQuickStyle.setStyle('Basic')
     app = QApplication(sys.argv)
-    app.setApplicationName('Bloodborne')
+    app.setApplicationName('Bloodborne Game Launcher')
     icon_path = (Path(sys.executable).resolve().parent / 'launcher' / 'assets' / 'hunter-icon.ico') if getattr(sys, 'frozen', False) else (Path(__file__).resolve().parent / 'assets' / 'hunter-icon.ico')
     app.setWindowIcon(QIcon(str(icon_path)))
     backend = LauncherBackend(route)

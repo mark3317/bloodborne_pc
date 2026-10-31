@@ -1,4 +1,4 @@
-"""Player-facing settings of the pinned BBSC fork."""
+"""Player-facing settings of the pinned BBSC-GL fork."""
 SETTINGS = [{'id': 'dream_own',
   'name': "Own Hunter's Dream",
   'description': "In the host's Hunter's Dream a guest sees its own Dream (own messengers, shops, "

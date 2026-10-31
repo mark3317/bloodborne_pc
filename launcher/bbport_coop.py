@@ -1,4 +1,4 @@
-"""Bundled mark3317 BBSC fork and local co-op services.
+"""Bundled BBSC-GL fork and local co-op services.
 Client binaries ship with the launcher; mutable accounts, saves and journals stay in
 LOCALAPPDATA. Upstream authors and licences are recorded in THIRD_PARTY.md.
 """
@@ -18,7 +18,7 @@ import time
 import urllib.request
 import zipfile
 
-REPO = 'mark3317/BBSC'
+REPO = 'mark3317/bbsc-gl'
 RELEASES = f'https://github.com/{REPO}/releases'
 DISCORD = 'https://discord.gg/Df7BCmfWdt'
 # The BBSC packages this launcher uses, found by name in BBSC's GitHub releases: the newest
