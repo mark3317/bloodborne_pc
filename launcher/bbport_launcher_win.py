@@ -801,7 +801,7 @@ def game_environment(s):
         env['BB_USER_DIR'] = s['user_dir']
     if s['dlc_dir']:
         env['BB_DLC_DIR'] = s['dlc_dir']
-    env['BB_MODS_DIR'] = s['mods_dir'] or str(DATA_DIR / 'mods')
+    env['BB_MODS_DIR'] = s['mods_dir'] or str(PORT_DIR / 'mods')
     env['BB_MODS_CONFIG'] = str(DATA_DIR / 'mods.json')
     env['BB_MODS_ENABLED'] = '1' if s['mods_enabled'] else '0'
     env['BB_PATCHES_DIR'] = s['patches_dir'] or str(DATA_DIR / 'patches')
@@ -1904,7 +1904,7 @@ class Launcher:
                    _('Loose-file mods, each in its own folder (with dvdroot_ps4, or chr\\, parts\\ … directly).',
                      'Моды из файлов, каждый в своей папке (с dvdroot_ps4 или chr\\, parts\\ … напрямую).'))
         self.folder(f, 'mods_dir', _('Mods folder', 'Папка модов'), _('Choose the mods folder', 'Выберите папку модов'),
-                    _('Empty: {}', 'Пусто: {}').format(DATA_DIR / 'mods'), on_change=self.refresh_lists)
+                    _('Empty: {}', 'Пусто: {}').format(PORT_DIR / 'mods'), on_change=self.refresh_lists)
         self.mods_frame = self.ttk.Frame(f)
         self.mods_frame.grid(row=self.next_row(f), column=0, columnspan=2, sticky='we', pady=(8, 0))
         self.section(f, _('PC gameplay enhancements'))
@@ -2114,7 +2114,7 @@ class Launcher:
         for holder in (self.mods_frame, self.patches_frame):
             for widget in holder.winfo_children():
                 widget.destroy()
-        root = Path(self.var('mods_dir', 'app').get() or DATA_DIR / 'mods')
+        root = Path(self.var('mods_dir', 'app').get() or PORT_DIR / 'mods')
         mod_config = DATA_DIR / 'mods.json'
         profile = load_json(mod_config, {})
         mtime = mod_config.stat().st_mtime_ns if mod_config.is_file() else None
@@ -2351,7 +2351,7 @@ class Launcher:
         if key == 'user_dir' and not path:
             path = DATA_DIR / 'user'
         elif key == 'mods_dir' and not path:
-            path = DATA_DIR / 'mods'
+            path = PORT_DIR / 'mods'
         elif key == 'patches_dir' and not path:
             path = DATA_DIR / 'patches'
         path = Path(path or DATA_DIR)

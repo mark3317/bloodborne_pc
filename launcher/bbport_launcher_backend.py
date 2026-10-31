@@ -991,7 +991,7 @@ class LauncherBackend(QObject):
     def refresh_addons(self):
         from mods import discover
         from patches import external_patches
-        folder = Path(self.app.get('mods_dir') or core.DATA_DIR / 'mods')
+        folder = Path(self.app.get('mods_dir') or core.PORT_DIR / 'mods')
         profile = core.load_json(core.DATA_DIR / 'mods.json', {})
         disabled = set(profile.get('disabled', []))
         names = discover(folder)
@@ -1055,7 +1055,7 @@ class LauncherBackend(QObject):
         self.refresh_addons()
 
     def _mods_dir(self):
-        return Path(self.app.get('mods_dir') or core.DATA_DIR / 'mods')
+        return Path(self.app.get('mods_dir') or core.PORT_DIR / 'mods')
 
     def _choose_prompt_download(self, choice):
         """The player's own download of a prompt pack: opens its Nexus page, then asks for the
@@ -1069,23 +1069,11 @@ class LauncherBackend(QObject):
 
     @Slot(str)
     def setPrompt(self, choice):
-        """Reconstruct included Xbox/Keyboard packs offline from the player's game archive."""
+        """Select the ready-to-use Xbox/Keyboard mods included in the installation."""
         if choice not in ('Xbox', 'PlayStation', 'Keyboard'):
             return
         names = [m['name'] for m in self._mods if self._is_prompt_mod(m['name'])]
         xbox = [n for n in names if n != core.KEYBOARD_PROMPTS]
-        if (choice == 'Xbox' and not xbox) or (choice == 'Keyboard' and core.KEYBOARD_PROMPTS not in names):
-            _, page, title, creator = core.PROMPT_PACKS[choice]
-            try:
-                from bundled_prompts import install
-                install(choice, self.app.get('game_dir', ''), self._mods_dir(),
-                        core.PORT_DIR / 'bundled-mods' / 'prompts')
-            except (OSError, ValueError) as error:
-                self._set_notice(str(error))
-                return
-            self.refresh_addons()
-            names = [m['name'] for m in self._mods if self._is_prompt_mod(m['name'])]
-            xbox = [n for n in names if n != core.KEYBOARD_PROMPTS]
         profile_file = core.DATA_DIR / 'mods.json'
         profile_file.parent.mkdir(parents=True, exist_ok=True)
         profile = core.load_json(profile_file, {})

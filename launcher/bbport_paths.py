@@ -16,7 +16,7 @@ def initialize(port):
     # Old installations remain untouched until the user retires that installation.
     marker = root / 'profile-layout-v2'
     if not marker.exists():
-        for name in ('bbport.ini', 'mods.json', 'patches.json', 'input.ini', 'user', 'mods'):
+        for name in ('bbport.ini', 'mods.json', 'patches.json', 'input.ini', 'user'):
             source, target = port / name, root / name
             if source.exists() and not target.exists():
                 if source.is_dir():
@@ -45,4 +45,22 @@ def initialize(port):
             if not target.exists():
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(source, target)
+    # Ready-made icon mods live in the installation; selection stays in AppData.
+    import json
+    mods_marker = root / 'ready-mods-layout-v1'
+    if not mods_marker.exists():
+        config = root / 'mods.json'
+        profile = json.loads(config.read_text(encoding='utf-8')) if config.exists() else {}
+        disabled = set(profile.get('disabled', []))
+        known = set(profile.get('enabled', [])) | set(profile.get('order', []))
+        for name in ('Xbox Prompts (Dommo)', 'Keyboard Prompts (PCBButtons)'):
+            if name not in known:
+                disabled.add(name)
+        profile['disabled'] = sorted(disabled)
+        config.write_text(json.dumps(profile, indent=2), encoding='utf-8')
+        for source in (root / 'mods').iterdir() if (root / 'mods').is_dir() else ():
+            target = port / 'mods' / source.name
+            if source.is_dir() and not target.exists():
+                shutil.copytree(source, target)
+        mods_marker.write_text('1\n', encoding='utf-8')
     return root

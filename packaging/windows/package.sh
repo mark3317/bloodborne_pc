@@ -92,7 +92,8 @@ ldd "$dest/bin/bb-probe.exe" "$dest/bin/bb-gpu-capabilities.exe" |
     awk '/\/clang64\/bin\// {print $3}' | sort -u | while read -r dll; do
         cp -u "$dll" "$dest/bin/"
     done
-cp -r scripts patches bundled-mods "$dest/"
+cp -r scripts patches "$dest/"
+"$venv/Scripts/python.exe" packaging/windows/bundle-prompts.py "$dest"
 # Legacy CPU (Intel 3rd generation and older): the translation plan scripts/cpu_compat.py applies.
 mkdir -p "$dest/tools" && cp tools/legacy-cpu-plan.json "$dest/tools/"
 cp run.py LICENSE README.md README.ru.md THIRD_PARTY.md packaging/windows/README-Windows.txt "$dest/"
@@ -125,7 +126,7 @@ done
 find "$dest" -name __pycache__ -prune -exec rm -r {} +
 "$venv/Scripts/python.exe" packaging/windows/verify-release.py "$dest"
 # Nothing from the game itself may ship: its archives (.dcx and what they hold) and executables.
-game_files=$(find "$dest" -type f \( -iname '*.dcx' -o -iname '*.tpf' -o -iname '*bnd' -o -iname '*.bdt' \
+game_files=$(find "$dest" -type f ! -path "$dest/mods/*/menu/common.tpf.dcx" \( -iname '*.dcx' -o -iname '*.tpf' -o -iname '*bnd' -o -iname '*.bdt' \
     -o -iname '*.bhd' -o -iname '*.prx' -o -iname '*.sprx' -o -iname 'eboot.bin' -o -iname 'param.sfo' \))
 if [[ -n $game_files ]]; then
     echo "Game files in the package (players supply their own):" >&2

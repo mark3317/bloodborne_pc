@@ -10,4 +10,4 @@ Updates: https://github.com/mark3317/bloodborne_pc/releases
 BBSC client and hosting binaries run directly from coop/client and coop/server.
 All writable data: %APPDATA%\bbport-launcher (settings, graphics, mods, saves, BBSC journals).
 Default saves/cache: %APPDATA%\bbport-launcher\user. No separate BBSC preparation.
-Bundled button packs work offline with the player's original 1.09 game archive.
+Ready-made Xbox/Keyboard mods are in the launcher mods folder; switching requires no extraction.
