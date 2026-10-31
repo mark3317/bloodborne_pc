@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# coopdev.sh - dev/test loop for the BBSC co-op mod and the bbport-coop launcher, run from Claude's
+# coopdev.sh - dev/test loop for the BBSC-GL co-op mod and the BBGL launcher, run from Claude's
 # Linux VM (folders mounted under ~/mnt) over ssh to mark_pc (builds, PC install), local_pc (laptop)
 # and remote_server (VPS co-op server). Windows-side work is coopdev.ps1 (copied to <root>\coop-dev).
 #
@@ -137,13 +137,13 @@ cmd_deploy() {
     launcher)
         for m in $(machines "$where"); do
             echo "== deploy launcher -> $m"
-            if [[ $m == pc ]]; then winps pc -Action deploy-launcher -Source "\"$PORT_REPO_W\\out\\stage\\bbport-windows\""
+            if [[ $m == pc ]]; then winps pc -Action deploy-launcher -Source "\"$PORT_REPO_W\\out\\stage\\Bloodborne Game Launcher\""
             else
-                local zip=$MNT/bloodborne_pc/dist/bbport-coop-windows.zip h r
+                local zip=$MNT/bloodborne_pc/dist/bbgl-windows.zip h r
                 h=$(host_of "$m"); r=$(root_of "$m")
                 ssh "$h" "if not exist \"$r\\coop-dev\" mkdir \"$r\\coop-dev\"" &&
-                scp -q "$zip" "$h:$(fwd "$r")/coop-dev/bbport-coop-windows.zip" &&
-                winps "$m" -Action deploy-launcher -Source "\"$r\\coop-dev\\bbport-coop-windows.zip\""
+                scp -q "$zip" "$h:$(fwd "$r")/coop-dev/bbgl-windows.zip" &&
+                winps "$m" -Action deploy-launcher -Source "\"$r\\coop-dev\\bbgl-windows.zip\""
             fi
         done ;;
     server)

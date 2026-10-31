@@ -4,7 +4,7 @@
 #   status            game running?, install, user dir, active save, BBSC package, snapshots
 #   deploy-mod        -Source <dir with bbsc.dll, bbsc-launch.exe[, mod.json]>: into <install>\coop\bbsc and the
 #                     active BBSC client package (%LOCALAPPDATA%\bbport-coop\...\bbsc), old files -> *.bak-<stamp>
-#   deploy-launcher   -Source <staged bbport-windows folder or .zip>: over <install>, user files kept;
+#   deploy-launcher   -Source <staged Bloodborne Game Launcher folder or .zip>: over <install>, user files kept;
 #                     the first time a full backup of the install goes to <root>\coop-dev\backups\
 #   save-list         snapshots in <root>\coop-dev\saves
 #   save-snap         -Name <name> [-Desc <text>]: the active SPRJ0005 (+ BBSC own-world / bell-pending)
@@ -27,22 +27,36 @@ $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 
-if (-not $Install) { $Install = Join-Path (Split-Path $PSScriptRoot -Parent) 'bbport-coop' }
+if (-not $Install) {
+    $installRoot = Split-Path $PSScriptRoot -Parent
+    $Install = Join-Path $installRoot 'Bloodborne Game Launcher'
+    if (-not (Test-Path -LiteralPath $Install)) { $Install = Join-Path $installRoot 'bbport-coop' }
+}
 if (-not $Root) { $Root = Split-Path $Install -Parent }
 $Dev = Join-Path $Root 'coop-dev'
 $GameProcs = 'bb-probe', 'bb-play', 'bbsc-launch'
 $UserFiles = 'user', 'out', 'mods', 'bbport.ini', 'input.ini', 'mods.json', 'patches.json', 'last_run.log', 'coop-server.json'
 
-function Settings {
-    foreach ($n in 'bbport-launcher', 'bbport-launcher-coop') {
-        $p = Join-Path $env:APPDATA "$n\settings.json"
-        if (Test-Path $p) { return Get-Content $p -Raw -Encoding UTF8 | ConvertFrom-Json }
+function SettingsFile {
+    foreach ($candidate in @(
+        (Join-Path $env:LOCALAPPDATA 'bbgl\settings.json'),
+        (Join-Path $env:LOCALAPPDATA 'bbport-launcher\settings.json'),
+        (Join-Path $env:APPDATA 'bbport-launcher\settings.json'),
+        (Join-Path $env:APPDATA 'bbport-launcher-coop\settings.json'))) {
+        if (Test-Path -LiteralPath $candidate) { return $candidate }
     }
+    return $null
+}
+function Settings {
+    $settingsPath = SettingsFile
+    if ($settingsPath) { return Get-Content -LiteralPath $settingsPath -Raw -Encoding UTF8 | ConvertFrom-Json }
     return $null
 }
 function UserDir {
     $s = Settings
     if ($s -and $s.user_dir) { return [IO.Path]::GetFullPath($s.user_dir) }
+    $settingsPath = SettingsFile
+    if ($settingsPath) { return (Join-Path (Split-Path $settingsPath -Parent) 'user') }
     return (Join-Path $Install 'user')
 }
 function ActiveSave {
@@ -53,12 +67,19 @@ function ActiveSave {
     return $c
 }
 function ClientPkg {
+    $bundled = Join-Path $Install 'coop\client'
+    if (Test-Path (Join-Path $bundled 'bbsc\bbsc.dll')) { return $bundled }
     $base = Join-Path $env:LOCALAPPDATA 'bbport-coop'
     foreach ($n in 'bbsc-client', 'BBSC-0.0.1-BBport') {
         $p = Join-Path $base $n
         if (Test-Path (Join-Path $p 'bbsc\bbsc.dll')) { return $p }
     }
     return $null
+}
+function DataPkg {
+    $profile = Join-Path $env:LOCALAPPDATA 'bbgl\coop'
+    if (Test-Path -LiteralPath $profile) { return $profile }
+    return (ClientPkg)
 }
 function GameRunning { return @(Get-Process -Name $GameProcs -ErrorAction SilentlyContinue) }
 function RequireStopped {
@@ -110,7 +131,7 @@ switch ($Action) {
         $src = Join-Path $Dev "unpack"
         if (Test-Path $src) { Remove-Item $src -Recurse -Force }
         Expand-Archive -Path $Source -DestinationPath $src -Force
-        $src = Join-Path $src 'bbport-windows'
+        $src = Join-Path $src 'Bloodborne Game Launcher'
     }
     if (-not (Test-Path (Join-Path $src 'Bloodborne.exe'))) { throw "no Bloodborne.exe in $src" }
     $backups = Join-Path $Dev 'backups'
@@ -144,7 +165,7 @@ switch ($Action) {
     if ((Test-Path $dst) -and -not $Name.StartsWith('_auto-')) { throw "snapshot $Name exists" }
     Mirror $a.FullName (Join-Path $dst 'SPRJ0005')
     $sys = "$($a.FullName).sce_sys"; if (Test-Path $sys) { Mirror $sys (Join-Path $dst 'SPRJ0005.sce_sys') }
-    $p = ClientPkg
+    $p = DataPkg
     foreach ($n in 'own-world', 'bell-pending') {
         if ($p -and (Test-Path (Join-Path $p "bbsc\$n"))) { Mirror (Join-Path $p "bbsc\$n") (Join-Path $dst "bbsc-$n") }
     }
@@ -161,7 +182,7 @@ switch ($Action) {
     Get-ChildItem (Join-Path $Dev 'saves') -Directory -Filter '_auto-*' | Sort-Object Name -Descending | Select-Object -Skip 5 | Remove-Item -Recurse -Force
     Mirror (Join-Path $src 'SPRJ0005') $a.FullName
     if (Test-Path (Join-Path $src 'SPRJ0005.sce_sys')) { Mirror (Join-Path $src 'SPRJ0005.sce_sys') "$($a.FullName).sce_sys" }
-    $p = ClientPkg
+    $p = DataPkg
     foreach ($n in 'own-world', 'bell-pending') {
         $s = Join-Path $src "bbsc-$n"
         if ($p -and (Test-Path $s)) { Mirror $s (Join-Path $p "bbsc\$n") }
@@ -174,7 +195,7 @@ switch ($Action) {
     $out = Join-Path $Dev "runs\$RunId"
     if (Test-Path $out) { Remove-Item $out -Recurse -Force }
     New-Item -ItemType Directory -Force $out | Out-Null
-    $u = UserDir; $p = ClientPkg
+    $u = UserDir; $p = DataPkg
     $sets = @(
         @{ dir = $u; filter = 'last_run*.log'; to = 'game' },
         @{ dir = (Join-Path $u 'log'); filter = '*'; to = 'game-log' }
@@ -208,10 +229,7 @@ switch ($Action) {
     RequireStopped
     if (Get-Process -Name 'Bloodborne', 'Play Bloodborne' -ErrorAction SilentlyContinue) { throw 'LAUNCHER_RUNNING: close the launcher first' }
     if (-not (Test-Path (Join-Path $Source 'savedata'))) { throw "no savedata in $Source" }
-    $p = $null
-    foreach ($n in 'bbport-launcher', 'bbport-launcher-coop') {
-        $c = Join-Path $env:APPDATA "$n\settings.json"; if (Test-Path $c) { $p = $c; break }
-    }
+    $p = SettingsFile
     if (-not $p) { throw 'no launcher settings.json' }
     $raw = Get-Content $p -Raw -Encoding UTF8
     $old = (ConvertFrom-Json $raw).user_dir
